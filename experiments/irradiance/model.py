@@ -1,4 +1,3 @@
-import pytorch_lightning as pl
 import torch.nn.functional as F
 
 from pseudo_labeller.model import PsuedoIrradienceForecastor
@@ -10,15 +9,19 @@ import datetime
 import einops
 from ocf_datapipes.training.pseudo_irradience import pseudo_irradiance_datapipe
 from omegaconf import DictConfig
+from lightning.pytorch import LightningModule
+from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 
 
-class LitIrradianceModel(pl.LightningModule):
+class LitIrradianceModel(LightningModule):
     def __init__(
         self,
         config: DictConfig,
+        dataloader_config: DictConfig,
     ):
         super().__init__()
         self.forecast_steps = config.forecast_steps
+        self.dataloader_config = dataloader_config
         self.learning_rate = config.lr
         self.model = PsuedoIrradienceForecastor(
             input_channels=config.input_channels,
@@ -69,34 +72,37 @@ class LitIrradianceModel(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
-
-def create_train_dataloader(config: DictConfig):
-    return pseudo_irradiance_datapipe(
-        config.config,
+    def train_dataloader(self):
+        # Return your dataloader for training
+        datapipe = pseudo_irradiance_datapipe(
+        self.dataloader_config.config,
         start_time=datetime.datetime(2008, 1, 1),
         end_time=datetime.datetime(2020, 12, 31),
-        use_sun=config.sun,
-        use_nwp=config.nwp,
-        use_sat=config.sat,
-        use_hrv=config.hrv,
+        use_sun=self.dataloader_config.sun,
+        use_nwp=self.dataloader_config.nwp,
+        use_sat=self.dataloader_config.sat,
+        use_hrv=self.dataloader_config.hrv,
         use_pv=True,
-        use_topo=config.topo,
-        size=config.size,
-        use_future=config.use_future,
+        use_topo=self.dataloader_config.topo,
+        size=self.dataloader_config.size,
+        use_future=self.dataloader_config.use_future,
     )
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        return DataLoader2(datapipe, reading_service=rs)
 
-
-def create_val_dataloader(config: DictConfig):
-    return pseudo_irradiance_datapipe(
-        config.config,
-        start_time=datetime.datetime(2021, 1, 1),
-        end_time=datetime.datetime(2021, 12, 31),
-        use_sun=config.sun,
-        use_nwp=config.nwp,
-        use_sat=config.sat,
-        use_hrv=config.hrv,
-        use_pv=True,
-        use_topo=config.topo,
-        size=config.size,
-        use_future=config.use_future,
-    )
+    def val_dataloader(self):
+        datapipe = pseudo_irradiance_datapipe(
+            self.dataloader_config.config,
+            start_time=datetime.datetime(2021, 1, 1),
+            end_time=datetime.datetime(2021, 12, 31),
+            use_sun=self.dataloader_config.sun,
+            use_nwp=self.dataloader_config.nwp,
+            use_sat=self.dataloader_config.sat,
+            use_hrv=self.dataloader_config.hrv,
+            use_pv=True,
+            use_topo=self.dataloader_config.topo,
+            size=self.dataloader_config.size,
+            use_future=self.dataloader_config.use_future,
+        )
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        return DataLoader2(datapipe, reading_service=rs)

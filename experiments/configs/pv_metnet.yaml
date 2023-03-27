@@ -1,0 +1,26 @@
+model_name: "metnet"
+model:
+  forecast_steps: 12
+  lr: 1e-4
+  input_channels: 12
+  input_size: 64
+  center_crop_size: 64
+  hidden_dim: 512
+  att_layers: 2
+dataloader:
+  config: "configs/datapipe/metnet_gcp.yaml"
+  sun: true
+  nwp: true
+  sat: true
+  hrv: true
+  topo: true
+  size: 64
+  center_meter: 64_000
+  context_meter: 512_000
+  num_workers: 8
+
+epochs: 100
+fp16: true
+num_gpu: 0
+cpu: false
+accumulate: 1

@@ -6,19 +6,20 @@ from metnet.models import MetNetSingleShot
 
 matplotlib.use("agg")
 import warnings
-
+import numpy as np
 import matplotlib.pyplot as plt
-import pytorch_lightning as pl
 import torch
+from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 import torch.nn.functional as F
 import datetime
+from lightning.pytorch import LightningModule
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 
-import einops
-import hydra
-from omegaconf import DictConfig, OmegaConf
 
+from omegaconf import DictConfig
 
 warnings.filterwarnings("ignore")
+
 
 def mse_each_forecast_horizon(output: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -50,32 +51,30 @@ def mae_each_forecast_horizon(output: torch.Tensor, target: torch.Tensor) -> tor
 
 torch.set_float32_matmul_precision("medium")
 
-class LitMetNetModel(pl.LightningModule):
+
+class LitMetNetModel(LightningModule):
     def __init__(
-        self,
-        input_channels=42,
-        center_crop_size=64,
-        input_size=256,
-        forecast_steps=70,
-        hidden_dim=2048,
-        att_layers=2,
-        lr=1e-4,
+            self,
+            config: DictConfig,
+            dataloader_config: DictConfig,
     ):
         super().__init__()
-        self.forecast_steps = forecast_steps
-        self.learning_rate = lr
+        self.forecast_steps = config.forecast_steps
+        self.learning_rate = config.lr
         self.model = MetNetSingleShot(
-            output_channels=forecast_steps,
-            input_channels=input_channels,
-            center_crop_size=center_crop_size,
-            input_size=input_size,
-            forecast_steps=forecast_steps,
+            output_channels=config.forecast_steps,
+            input_channels=config.input_channels,
+            center_crop_size=config.center_crop_size,
+            input_size=config.input_size,
+            forecast_steps=config.forecast_steps,
             use_preprocessor=False,
-            num_att_layers=att_layers,
-            hidden_dim=hidden_dim,
+            num_att_layers=config.att_layers,
+            hidden_dim=config.hidden_dim,
         )
         self.pooler = torch.nn.AdaptiveAvgPool2d(1)
         self.config = self.model.config
+        self.dataloader_config = dataloader_config
+        self.model_config = config
         self.save_hyperparameters()
 
     def forward(self, x):
@@ -146,8 +145,13 @@ class LitMetNetModel(pl.LightningModule):
         # Get tensorboard logger
         tb_logger = None
         for logger in self.trainer.loggers:
-            if isinstance(logger, pl_loggers.TensorBoardLogger):
+            if isinstance(logger, TensorBoardLogger):
                 tb_logger = logger.experiment
+                break
+        wandb_logger = None
+        for logger in self.trainer.loggers:
+            if isinstance(logger, WandbLogger):
+                wandb_logger = logger.experiment
                 break
 
         if tb_logger is None:
@@ -161,38 +165,29 @@ class LitMetNetModel(pl.LightningModule):
             plt.title("GT vs Pred PV Site Single Shot")
             plt.legend(loc="best")
             tb_logger.add_figure(f"GT_Vs_Pred/{img_idx}", fig, batch_idx)
+            if wandb_logger is not None:
+                canvas = plt.gca().figure.canvas
+                canvas.draw()
+                data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+                image = data.reshape(canvas.get_width_height()[::-1] + (3,))
+                wandb_logger.log_image(key=f"GT_Vs_Pred/{img_idx}", images=[image])
 
-
-def create_metnet_train_dataloader(config: DictConfig):
-    return metnet_site_datapipe(
-        config.config,
-        start_time=datetime.datetime(2014, 1, 1),
-        end_time=datetime.datetime(2020, 12, 31),
-        use_sun=config.sun,
-        use_nwp=config.nwp,
-        use_sat=config.sat,
-        use_hrv=config.hrv,
-        use_pv=True,
-        use_topo=config.topo,
-        pv_in_image=True,
-        output_size=config.size,
-        center_size_meters=config.center_meter,
-        context_size_meters=config.context_meter,
-    )
-
-def create_metnet_test_dataloader(config: DictConfig):
-    return metnet_site_datapipe(
-        config.config,
-        start_time=datetime.datetime(2021, 1, 1),
-        end_time=datetime.datetime(2021, 12, 31),
-        use_sun=config.sun,
-        use_nwp=config.nwp,
-        use_sat=config.sat,
-        use_hrv=config.hrv,
-        use_pv=True,
-        use_topo=config.topo,
-        pv_in_image=True,
-        output_size=config.size,
-        center_size_meters=config.center_meter,
-        context_size_meters=config.context_meter,
-    )
+    def train_dataloader(self):
+        # Return your dataloader for training
+        datapipe = metnet_site_datapipe(
+            self.dataloader_config.config,
+            start_time=datetime.datetime(2014, 1, 1),
+            end_time=datetime.datetime(2020, 12, 31),
+            use_sun=self.dataloader_config.sun,
+            use_nwp=self.dataloader_config.nwp,
+            use_sat=self.dataloader_config.sat,
+            use_hrv=self.dataloader_config.hrv,
+            use_pv=True,
+            use_topo=self.dataloader_config.topo,
+            pv_in_image=True,
+            output_size=self.dataloader_config.size,
+            center_size_meters=self.dataloader_config.center_meter,
+            context_size_meters=self.dataloader_config.context_meter,
+        )
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        return DataLoader2(datapipe, reading_service=rs)
