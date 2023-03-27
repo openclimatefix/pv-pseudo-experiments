@@ -1,0 +1,27 @@
+model:
+  forecast_steps: 12
+  lr: 1e-4
+  input_channels: 12
+  input_size: 64
+  input_steps: 12
+  latent_channels: 8
+  conv3d_channels: 256
+  hidden_dim: 64
+  kernel_size: 3
+  num_layers: 4
+  output_steps: 12
+  pv_meta_input_channels: 2
+dataloader:
+  config: "configs/datapipe/forecastor.yaml"
+  sun: true
+  nwp: true
+  sat: true
+  hrv: true
+  topo: true
+  size: 64
+  use_future: false
+epochs: 100
+fp16: true
+num_gpu: 0
+cpu: false
+accumulate: 1
