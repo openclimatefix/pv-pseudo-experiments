@@ -10,12 +10,13 @@ except RuntimeError:
     pass
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from .irradiance.model import LitIrradianceModel
-from .site_level.model import LitMetNetModel
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from lightning.pytorch.trainer import Trainer
-from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
+from omegaconf import DictConfig, OmegaConf
+
+from pv_pseudo_experiments.irradiance.model import LitIrradianceModel
+from pv_pseudo_experiments.site_level.model import LitMetNetModel
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="config")

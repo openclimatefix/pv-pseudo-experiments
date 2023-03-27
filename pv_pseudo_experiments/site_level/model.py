@@ -1,22 +1,19 @@
+import matplotlib
+from metnet.models import MetNetSingleShot
 from ocf_datapipes.training.metnet_pv_site import metnet_site_datapipe
 
-import matplotlib
-
-from metnet.models import MetNetSingleShot
-
 matplotlib.use("agg")
-import warnings
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
-import torch.nn.functional as F
 import datetime
+import warnings
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn.functional as F
 from lightning.pytorch import LightningModule
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
-
-
 from omegaconf import DictConfig
+from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 
 warnings.filterwarnings("ignore")
 
