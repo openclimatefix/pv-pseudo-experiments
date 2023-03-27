@@ -187,4 +187,24 @@ class LitMetNetModel(LightningModule):
             context_size_meters=self.dataloader_config.context_meter,
         )
         rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
-        return DataLoader2(datapipe, reading_service=rs)
+        return DataLoader2(datapipe.set_length(10000), reading_service=rs)
+
+    def test_dataloader(self):
+        # Return your dataloader for training
+        datapipe = metnet_site_datapipe(
+            self.dataloader_config.config,
+            start_time=datetime.datetime(2014, 1, 1),
+            end_time=datetime.datetime(2020, 12, 31),
+            use_sun=self.dataloader_config.sun,
+            use_nwp=self.dataloader_config.nwp,
+            use_sat=self.dataloader_config.sat,
+            use_hrv=self.dataloader_config.hrv,
+            use_pv=True,
+            use_topo=self.dataloader_config.topo,
+            pv_in_image=True,
+            output_size=self.dataloader_config.size,
+            center_size_meters=self.dataloader_config.center_meter,
+            context_size_meters=self.dataloader_config.context_meter,
+        )
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        return DataLoader2(datapipe.set_length(8000), reading_service=rs)
