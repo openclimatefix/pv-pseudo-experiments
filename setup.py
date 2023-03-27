@@ -9,11 +9,11 @@ long_description = (this_directory / "README.md").read_text()
 install_requires = (this_directory / "requirements.txt").read_text().splitlines()
 
 setup(
-    name="cool_ocf_project",
+    name="OCF PV and Pseudo Labelling Experiment Code",
     version="0.0.1",
     license="MIT",
-    description="Super cool OCF Repo",
-    author="Jacob Bieker, Jack Kelly, Peter Dudfield",
+    description="OCF PV and Pseudo Labelling Experiment Code",
+    author="Jacob Bieker",
     author_email="info@openclimatefix.org",
     company="Open Climate Fix Ltd",
     install_requires=install_requires,

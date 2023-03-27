@@ -1,7 +1,15 @@
-name: ocf_template
+name: pv_pseudo_experiments
 channels:
   - pytorch
   - conda-forge
+  - pytorch
+  - nvidia
   - defaults
 dependencies:
   - pip
+  - datasets
+  - huggingface_hub
+  - torch
+  - torchdata
+  - torchvision
+  - pytorch-cuda=11.7
