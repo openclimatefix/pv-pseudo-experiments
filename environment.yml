@@ -1,15 +1,29 @@
-name: pv_pseudo_experiments
+name: pv-experiments
 channels:
-  - pytorch
-  - conda-forge
+  - defaults
   - pytorch
   - nvidia
-  - defaults
+  - conda-forge
 dependencies:
-  - pip
+  - pytorch
+  - torchvision
+  - torchaudio
+  - torchdata
+  - pytorch-cuda==11.7
   - datasets
   - huggingface_hub
-  - torch
-  - torchdata
-  - torchvision
-  - pytorch-cuda=11.7
+  - xarray
+  - zarr
+  - numcodecs
+  - cartopy
+  - dask
+  - fsspec
+  - pip:
+      - wandb
+      - pseudo-labeller
+      - metnet
+      - einops
+      - lightning
+      - hydra-core
+      - hydra-colorlog
+      - hydra-optuna-sweeper
