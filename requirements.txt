@@ -1,7 +1,7 @@
 pseudo-labeller
 metnet
 lightning
-pytorch
+torch
 torchvision
 datasets
 torchdata
