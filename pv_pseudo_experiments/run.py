@@ -19,7 +19,7 @@ from pv_pseudo_experiments.irradiance.model import LitIrradianceModel
 from pv_pseudo_experiments.site_level.model import LitMetNetModel
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="config")
+@hydra.main(version_base=None, config_path="configs", config_name="pv_metnet")
 def experiment(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     if cfg.model_name == "metnet":

@@ -9,7 +9,7 @@ long_description = (this_directory / "README.md").read_text()
 install_requires = (this_directory / "requirements.txt").read_text().splitlines()
 
 setup(
-    name="OCF PV and Pseudo Labelling Experiment Code",
+    name="ocf_pv_irradiance_experiment",
     version="0.0.1",
     license="MIT",
     description="OCF PV and Pseudo Labelling Experiment Code",
