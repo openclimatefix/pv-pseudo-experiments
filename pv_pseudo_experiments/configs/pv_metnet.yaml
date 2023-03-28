@@ -18,6 +18,7 @@ dataloader:
   center_meter: 64_000
   context_meter: 512_000
   num_workers: 8
+  batch: 16
 
 epochs: 100
 fp16: true
