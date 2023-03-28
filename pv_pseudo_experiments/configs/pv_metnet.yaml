@@ -4,7 +4,7 @@ model:
   lr: 1e-4
   input_channels: 12
   input_size: 64
-  center_crop_size: 64
+  center_crop_size: 16
   hidden_dim: 512
   att_layers: 2
 dataloader:
@@ -12,7 +12,7 @@ dataloader:
   sun: true
   nwp: true
   sat: true
-  hrv: true
+  hrv: false
   topo: true
   size: 64
   center_meter: 64_000
