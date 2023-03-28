@@ -81,6 +81,8 @@ class LitMetNetModel(LightningModule):
         tag = "train"
         x, y = batch
         y = y[0]
+        x = torch.from_numpy(x)
+        y = torch.from_numpy(y)
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         x = x.half()
