@@ -80,6 +80,10 @@ class LitMetNetModel(LightningModule):
     def training_step(self, batch, batch_idx):
         tag = "train"
         x, y = batch
+        print(len(x))
+        print(x[0].shape)
+        print(x[1].shape)
+        print(y.shape)
         y = y[0]
         x = torch.from_numpy(x)
         y = torch.from_numpy(y)
