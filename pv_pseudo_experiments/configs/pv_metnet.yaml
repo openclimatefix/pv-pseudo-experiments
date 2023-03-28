@@ -24,3 +24,4 @@ fp16: true
 num_gpu: 0
 cpu: false
 accumulate: 1
+wandb: false

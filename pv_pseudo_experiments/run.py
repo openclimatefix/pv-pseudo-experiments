@@ -37,7 +37,10 @@ def experiment(cfg: DictConfig) -> None:
         save_top_k=10,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
-
+    loggers = [TensorBoardLogger(save_dir="./")]
+    if cfg.wandb:
+        loggers.append(WandbLogger(project="PvMetNet" if cfg.model_name == "metnet" else "PvIrradiance",
+                            log_model="all",))
     trainer = Trainer(
         max_epochs=cfg.epochs,
         precision=16 if cfg.fp16 else 32,
@@ -48,9 +51,7 @@ def experiment(cfg: DictConfig) -> None:
         # limit_train_batches=500 * args.accumulate,
         accumulate_grad_batches=cfg.accumulate,
         callbacks=[model_checkpoint, lr_monitor],
-        logger=[TensorBoardLogger(save_dir="logs/"),
-                WandbLogger(project="PvMetNet" if cfg.model_name == "metnet" else "PvIrradiance",
-                            log_model="all",)]
+        logger=loggers
     )
     trainer.fit(model)
 
