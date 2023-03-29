@@ -82,8 +82,11 @@ class LitMetNetModel(LightningModule):
         x, y = batch
         print(len(x))
         print(x[0].shape)
-        print(x[1].shape)
-        print(y.shape)
+        print(len(x[1]))
+        print(len(y))
+        print(y[0].shape)
+        print(x[1][0].shape)
+        exit()
         y = y[0]
         x = torch.from_numpy(x)
         y = torch.from_numpy(y)
@@ -192,7 +195,7 @@ class LitMetNetModel(LightningModule):
             center_size_meters=self.dataloader_config.center_meter,
             context_size_meters=self.dataloader_config.context_meter,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(10000), reading_service=rs)
 
     def test_dataloader(self):
@@ -212,5 +215,5 @@ class LitMetNetModel(LightningModule):
             center_size_meters=self.dataloader_config.center_meter,
             context_size_meters=self.dataloader_config.context_meter,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(8000), reading_service=rs)

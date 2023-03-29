@@ -84,7 +84,7 @@ class LitIrradianceModel(LightningModule):
         size=self.dataloader_config.size,
         use_future=self.dataloader_config.use_future,
     )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(10000), reading_service=rs)
 
     def test_dataloader(self):
@@ -101,5 +101,5 @@ class LitIrradianceModel(LightningModule):
             size=self.dataloader_config.size,
             use_future=self.dataloader_config.use_future,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers)
+        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(8000), reading_service=rs)

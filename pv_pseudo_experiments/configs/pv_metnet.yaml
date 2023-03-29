@@ -15,10 +15,10 @@ dataloader:
   hrv: false
   topo: true
   size: 64
-  center_meter: 64_000
-  context_meter: 512_000
-  num_workers: 8
-  batch: 16
+  center_meter: 16_000
+  context_meter: 64_000
+  num_workers: 0
+  batch: 2
 
 epochs: 100
 fp16: true
