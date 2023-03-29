@@ -13,6 +13,7 @@ from lightning.pytorch import LightningModule
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from omegaconf import DictConfig
 from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
+from torch.utils.data.dataloader import DataLoader
 
 warnings.filterwarnings("ignore")
 
@@ -185,8 +186,8 @@ class LitMetNetModel(LightningModule):
             context_size_meters=self.dataloader_config.context_meter,
             batch_size=self.dataloader_config.batch,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.map(convert_to_tensor).set_length(10000), reading_service=rs)
+        #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
+        return DataLoader(datapipe.map(convert_to_tensor).set_length(10000), num_workers=self.dataloader_config.num_workers, batch_size=None)
 
     def test_dataloader(self):
         # Return your dataloader for training
@@ -206,8 +207,8 @@ class LitMetNetModel(LightningModule):
             context_size_meters=self.dataloader_config.context_meter,
             batch=self.dataloader_config.batch,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.map(convert_to_tensor).set_length(8000), reading_service=rs)
+        #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
+        return DataLoader(datapipe.map(convert_to_tensor).set_length(8000), num_workers=self.dataloader_config.num_workers, batch_size=None)
 
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets
