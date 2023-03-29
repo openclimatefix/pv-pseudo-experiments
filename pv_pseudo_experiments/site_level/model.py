@@ -196,7 +196,7 @@ class LitMetNetModel(LightningModule):
             batch_size=self.dataloader_config.batch,
         )
         rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.set_length(10000), reading_service=rs)
+        return DataLoader2(datapipe.map(convert_to_tensor).set_length(10000), reading_service=rs)
 
     def test_dataloader(self):
         # Return your dataloader for training
@@ -217,13 +217,9 @@ class LitMetNetModel(LightningModule):
             batch=self.dataloader_config.batch,
         )
         rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.set_length(8000), reading_service=rs)
+        return DataLoader2(datapipe.map(convert_to_tensor).set_length(8000), reading_service=rs)
 
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets
-    
-
-    return (
-        torch.tensor(batch["image"], dtype=torch.float32),
-        torch.tensor(batch["pv"], dtype=torch.float32),
-    )
+    return (torch.tensor(batch[0], dtype=torch.float32),
+            torch.tensor(batch[1], dtype=torch.float32))
