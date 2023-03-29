@@ -222,4 +222,4 @@ class LitMetNetModel(LightningModule):
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets
     return (torch.tensor(batch[0], dtype=torch.float32),
-            torch.tensor(batch[1], dtype=torch.float32))
+            torch.squeeze(torch.tensor(batch[1], dtype=torch.float32), dim=1))
