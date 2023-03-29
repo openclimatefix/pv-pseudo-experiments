@@ -1,8 +1,8 @@
 model_name: "metnet"
 model:
-  forecast_steps: 12
+  forecast_steps: 360
   lr: 1e-4
-  input_channels: 12
+  input_channels: 56
   input_size: 64
   center_crop_size: 16
   hidden_dim: 512
@@ -12,13 +12,13 @@ dataloader:
   sun: true
   nwp: true
   sat: true
-  hrv: false
+  hrv: true
   topo: true
   size: 64
-  center_meter: 16_000
-  context_meter: 64_000
-  num_workers: 0
-  batch: 2
+  center_meter: 32_000
+  context_meter: 128_000
+  num_workers: 8
+  batch: 16
 
 epochs: 100
 fp16: true
