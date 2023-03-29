@@ -1,7 +1,6 @@
 import matplotlib
 from metnet.models import MetNetSingleShot
 from ocf_datapipes.training.metnet_pv_site import metnet_site_datapipe
-
 matplotlib.use("agg")
 import datetime
 import warnings
@@ -194,9 +193,10 @@ class LitMetNetModel(LightningModule):
             output_size=self.dataloader_config.size,
             center_size_meters=self.dataloader_config.center_meter,
             context_size_meters=self.dataloader_config.context_meter,
+            batch_size=self.dataloader_config.batch,
         )
         rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(10000), reading_service=rs)
+        return DataLoader2(datapipe.set_length(10000), reading_service=rs)
 
     def test_dataloader(self):
         # Return your dataloader for training
@@ -214,6 +214,16 @@ class LitMetNetModel(LightningModule):
             output_size=self.dataloader_config.size,
             center_size_meters=self.dataloader_config.center_meter,
             context_size_meters=self.dataloader_config.context_meter,
+            batch=self.dataloader_config.batch,
         )
         rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(8000), reading_service=rs)
+        return DataLoader2(datapipe.set_length(8000), reading_service=rs)
+
+def convert_to_tensor(batch):
+    # Each batch has 0 being the inputs, and 1 being the targets
+    
+
+    return (
+        torch.tensor(batch["image"], dtype=torch.float32),
+        torch.tensor(batch["pv"], dtype=torch.float32),
+    )
