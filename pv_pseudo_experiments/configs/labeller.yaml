@@ -3,7 +3,7 @@ model:
   forecast_steps: 12
   lr: 1e-4
   input_channels: 12
-  input_size: 64
+  input_size: 32
   input_steps: 12
   latent_channels: 8
   conv3d_channels: 256
@@ -13,13 +13,13 @@ model:
   output_steps: 12
   pv_meta_input_channels: 2
 dataloader:
-  config: "configs/datapipe/forecastor.yaml"
+  config: "configs/datapipe/forecastor_gcp.yaml"
   sun: true
   nwp: true
   sat: true
   hrv: true
   topo: true
-  size: 64
+  size: 32
   use_future: false
   num_workers: 8
   batch: 16

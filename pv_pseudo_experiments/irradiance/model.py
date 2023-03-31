@@ -8,13 +8,13 @@ from ocf_datapipes.training.pseudo_irradience import pseudo_irradiance_datapipe
 from omegaconf import DictConfig
 from pseudo_labeller.model import PsuedoIrradienceForecastor
 from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
-
+from torch.utils.data.dataloader import DataLoader
 
 class LitIrradianceModel(LightningModule):
     def __init__(
-        self,
-        config: DictConfig,
-        dataloader_config: DictConfig,
+            self,
+            config: DictConfig,
+            dataloader_config: DictConfig,
     ):
         super().__init__()
         self.forecast_steps = config.forecast_steps
@@ -43,9 +43,9 @@ class LitIrradianceModel(LightningModule):
         x, meta, y = batch
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-        x = x.half()
-        y = y.half()
-        meta = meta.half()
+        #x = x.half()
+        #y = y.half()
+        #meta = meta.half()
         y_hat = self(x, meta)
 
         mask = meta > 0.0
@@ -72,20 +72,23 @@ class LitIrradianceModel(LightningModule):
     def train_dataloader(self):
         # Return your dataloader for training
         datapipe = pseudo_irradiance_datapipe(
-        self.dataloader_config.config,
-        start_time=datetime.datetime(2008, 1, 1),
-        end_time=datetime.datetime(2020, 12, 31),
-        use_sun=self.dataloader_config.sun,
-        use_nwp=self.dataloader_config.nwp,
-        use_sat=self.dataloader_config.sat,
-        use_hrv=self.dataloader_config.hrv,
-        use_pv=True,
-        use_topo=self.dataloader_config.topo,
-        size=self.dataloader_config.size,
-        use_future=self.dataloader_config.use_future,
-    )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(10000), reading_service=rs)
+            self.dataloader_config.config,
+            start_time=datetime.datetime(2008, 1, 1),
+            end_time=datetime.datetime(2020, 12, 31),
+            use_sun=self.dataloader_config.sun,
+            use_nwp=self.dataloader_config.nwp,
+            use_sat=self.dataloader_config.sat,
+            use_hrv=self.dataloader_config.hrv,
+            use_pv=True,
+            use_topo=self.dataloader_config.topo,
+            size=self.dataloader_config.size,
+            use_future=self.dataloader_config.use_future,
+            batch_size=self.dataloader_config.batch,
+        )
+        #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
+        #                                   multiprocessing_context="spawn")
+        return DataLoader(datapipe.collate().set_length(10000),
+                          num_workers=self.dataloader_config.num_workers, batch_size=None)
 
     def test_dataloader(self):
         datapipe = pseudo_irradiance_datapipe(
@@ -100,6 +103,10 @@ class LitIrradianceModel(LightningModule):
             use_topo=self.dataloader_config.topo,
             size=self.dataloader_config.size,
             use_future=self.dataloader_config.use_future,
+            batch_size=self.dataloader_config.batch,
         )
-        rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader2(datapipe.batch(self.dataloader_config.batch).set_length(8000), reading_service=rs)
+        #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
+        #                                   multiprocessing_context="spawn")
+        return DataLoader(datapipe.collate().set_length(8000),
+                          num_workers=self.dataloader_config.num_workers, batch_size=None)
+
