@@ -161,12 +161,6 @@ class LitMetNetModel(LightningModule):
             plt.title("GT vs Pred PV Site Single Shot")
             plt.legend(loc="best")
             tb_logger.add_figure(f"GT_Vs_Pred/{img_idx}", fig, batch_idx)
-            if wandb_logger is not None:
-                canvas = plt.gca().figure.canvas
-                canvas.draw()
-                data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
-                image = data.reshape(canvas.get_width_height()[::-1] + (3,))
-                wandb_logger.log_image(key=f"GT_Vs_Pred/{img_idx}", images=[image])
 
     def train_dataloader(self):
         # Return your dataloader for training
