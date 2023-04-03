@@ -18,3 +18,4 @@ hydra-core
 hydra-colorlog
 hydra-optuna-sweeper
 ocf_datapipes
+tensorboard

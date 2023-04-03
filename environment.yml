@@ -27,3 +27,4 @@ dependencies:
       - hydra-core
       - hydra-colorlog
       - hydra-optuna-sweeper
+      - tensorboard
