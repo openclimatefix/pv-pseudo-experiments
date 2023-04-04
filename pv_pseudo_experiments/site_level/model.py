@@ -93,6 +93,8 @@ class LitMetNetModel(LightningModule):
         mse_loss = F.mse_loss(y_hat, y)
         nmae_loss = (y_hat - y).abs().mean()
         loss = nmae_loss
+        if torch.isinf(loss) or torch.isnan(loss):
+            raise ValueError("Loss is NaN or Inf. Exiting.")
         self.log("loss", loss)
         # TODO: Compute correlation coef using np.corrcoef(tensor with
         # shape (2, num_timesteps))[0, 1] on each example, and taking
