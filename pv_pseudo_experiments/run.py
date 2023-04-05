@@ -10,7 +10,7 @@ except RuntimeError:
     pass
 
 import hydra
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from lightning.pytorch.trainer import Trainer
 from omegaconf import DictConfig, OmegaConf

@@ -43,9 +43,6 @@ class LitIrradianceModel(LightningModule):
         x, meta, y = batch
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-        #x = x.half()
-        #y = y.half()
-        #meta = meta.half()
         y_hat = self(x, meta)
 
         mask = meta > 0.0
@@ -57,6 +54,8 @@ class LitIrradianceModel(LightningModule):
         mse_loss = F.mse_loss(y_hat[mask], y[mask])
         nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
         loss = nmae_loss
+        if torch.isinf(loss) or torch.isnan(loss):
+            raise ValueError("Loss is NaN or Inf. Exiting.")
         self.log("loss", loss)
         self.log_dict(
             {
