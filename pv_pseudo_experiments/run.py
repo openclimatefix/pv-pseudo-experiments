@@ -16,16 +16,22 @@ from lightning.pytorch.trainer import Trainer
 from omegaconf import DictConfig, OmegaConf
 
 from pv_pseudo_experiments.irradiance.model import LitIrradianceModel
+from pv_pseudo_experiments.irradiance.batch_writing import BatchWriter
 from pv_pseudo_experiments.site_level.model import LitMetNetModel
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="pv_metnet")
+@hydra.main(version_base=None, config_path="configs", config_name="batch")
 def experiment(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     if cfg.model_name == "metnet":
         model = LitMetNetModel(cfg.model, dataloader_config=cfg.dataloader)
     elif cfg.model_name == "irradiance":
         model = LitIrradianceModel(cfg.model, dataloader_config=cfg.dataloader)
+    elif cfg.model_name == "batch":
+        model = BatchWriter(cfg.dataloader)
+        # Create batches now
+        model()
+        exit()
     else:
         raise ValueError(f"Unknown model name {cfg.model_name}")
 
