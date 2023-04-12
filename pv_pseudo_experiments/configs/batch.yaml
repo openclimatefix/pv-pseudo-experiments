@@ -13,7 +13,7 @@ model:
   output_steps: 12
   pv_meta_input_channels: 2
 dataloader:
-  config: "configs/datapipe/forecastor_gcp.yaml"
+  config: "configs/datapipe/forecastor.yaml"
   sun: true
   nwp: true
   sat: true
