@@ -19,9 +19,10 @@ class BatchWriter():
             use_future=dataloader_config.use_future,
             batch_size=dataloader_config.batch,
         )
-        self.dataloader = DataLoader(datapipe.collate().set_length(15000),
+        self.dataloader = DataLoader(datapipe.set_length(15000),
                   num_workers=dataloader_config.num_workers, batch_size=None)
 
     def __call__(self):
         for i, batch in enumerate(self.dataloader):
+            batch = (torch.Tensor(batch[0]), torch.Tensor(batch[1]), torch.Tensor(batch[2]))
             torch.save(batch, f"/mnt/disks/batches/{i}.pth")
