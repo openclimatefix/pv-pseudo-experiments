@@ -54,7 +54,7 @@ def experiment(cfg: DictConfig) -> None:
         callbacks=[model_checkpoint, lr_monitor],
         logger=loggers
     )
-    trainer.fit(model)
+    trainer.test(model)
 
 if __name__ == "__main__":
     experiment()

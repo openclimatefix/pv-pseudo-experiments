@@ -138,6 +138,64 @@ class LitMetNetModel(LightningModule):
             self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]))
         return loss
 
+    def test_step(self, batch, batch_idx):
+        tag = "val"
+        x, y = batch
+        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+        x = x.half()
+        y = y.half()
+        y = y[:, 1:, 0]  # Take out the T0 output
+        y_hat = self(x)
+        # loss = self.weighted_losses.get_mse_exp(y_hat, y)
+        # self.log("loss", loss)
+
+        # calculate mse, mae
+        mse_loss = F.mse_loss(y_hat, y)
+        nmae_loss = (y_hat - y).abs().mean()
+        loss = nmae_loss
+        if torch.isinf(loss) or torch.isnan(loss):
+            raise ValueError("Loss is NaN or Inf. Exiting.")
+        self.log("loss", loss)
+        # TODO: Compute correlation coef using np.corrcoef(tensor with
+        # shape (2, num_timesteps))[0, 1] on each example, and taking
+        # the mean across the batch?
+        self.log_dict(
+            {
+                f"MSE/{tag}": mse_loss,
+                f"NMAE/{tag}": nmae_loss,
+            },
+            # on_step=True,
+            # on_epoch=True,
+            # sync_dist=True  # Required for distributed training
+            # (even multi-GPU on signle machine).
+        )
+
+        # add metrics for each forecast horizon
+        mse_each_forecast_horizon_metric = mse_each_forecast_horizon(output=y_hat, target=y)
+        mae_each_forecast_horizon_metric = mae_each_forecast_horizon(output=y_hat, target=y)
+
+        metrics_mse = {
+            f"MSE_forecast_horizon_{i}/{tag}": mse_each_forecast_horizon_metric[i]
+            for i in range(self.forecast_steps)
+        }
+        metrics_mae = {
+            f"MAE_forecast_horizon_{i}/{tag}": mae_each_forecast_horizon_metric[i]
+            for i in range(self.forecast_steps)
+        }
+
+        self.log_dict(
+            {**metrics_mse, **metrics_mae},
+            # on_step=True,
+            # on_epoch=True,
+            # sync_dist=True  # Required for distributed training
+            # (even multi-GPU on signle machine).
+        )
+
+        if batch_idx % 100 == 0:  # Log every 100 batches
+            self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]))
+        return loss
+
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
@@ -192,8 +250,8 @@ class LitMetNetModel(LightningModule):
         # Return your dataloader for training
         datapipe = metnet_site_datapipe(
             self.dataloader_config.config,
-            start_time=datetime.datetime(2014, 1, 1),
-            end_time=datetime.datetime(2020, 12, 31),
+            start_time=datetime.datetime(2020, 1, 1),
+            end_time=datetime.datetime(2021, 12, 31),
             use_sun=self.dataloader_config.sun,
             use_nwp=self.dataloader_config.nwp,
             use_sat=self.dataloader_config.sat,
@@ -204,7 +262,7 @@ class LitMetNetModel(LightningModule):
             output_size=self.dataloader_config.size,
             center_size_meters=self.dataloader_config.center_meter,
             context_size_meters=self.dataloader_config.context_meter,
-            batch=self.dataloader_config.batch,
+            batch_size=self.dataloader_config.batch,
         )
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader(datapipe.map(convert_to_tensor).set_length(8000), num_workers=self.dataloader_config.num_workers, batch_size=None)
