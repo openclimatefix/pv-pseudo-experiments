@@ -7,6 +7,7 @@ model:
   center_crop_size: 8
   hidden_dim: 1024
   att_layers: 8
+  weights: "/mnt/storage_ssd_4tb/artifacts/model-store0av:v27"
 dataloader:
   config: "configs/datapipe/metnet_donatello.yaml"
   sun: false

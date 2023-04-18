@@ -58,16 +58,19 @@ class LitMetNetModel(LightningModule):
         super().__init__()
         self.forecast_steps = config.forecast_steps
         self.learning_rate = config.lr
-        self.model = MetNetSingleShot(
-            output_channels=config.forecast_steps,
-            input_channels=config.input_channels,
-            center_crop_size=config.center_crop_size,
-            input_size=config.input_size,
-            forecast_steps=config.forecast_steps,
-            use_preprocessor=False,
-            num_att_layers=config.att_layers,
-            hidden_dim=config.hidden_dim,
-        )
+        if config.weights:
+            self.model = MetNetSingleShot.from_pretrained(config.weights)
+        else:
+            self.model = MetNetSingleShot(
+                output_channels=config.forecast_steps,
+                input_channels=config.input_channels,
+                center_crop_size=config.center_crop_size,
+                input_size=config.input_size,
+                forecast_steps=config.forecast_steps,
+                use_preprocessor=False,
+                num_att_layers=config.att_layers,
+                hidden_dim=config.hidden_dim,
+            )
         self.pooler = torch.nn.AdaptiveAvgPool2d(1)
         self.config = self.model.config
         self.dataloader_config = dataloader_config
