@@ -11,6 +11,7 @@ from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import IterableDataset
 import glob
+import os
 
 class PseudoIrradianceDataset(IterableDataset):
     # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
@@ -22,9 +23,9 @@ class PseudoIrradianceDataset(IterableDataset):
         # and ones that have 2020 in them if train is false
         # use the filter function and the lambda function to do this
         if self.train:
-            self.files = filter(lambda x: "2021" not in x, glob.glob(self.path_to_files + "/*.pth"))
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         else:
-            self.files = filter(lambda x: "2021" in x, glob.glob(self.path_to_files + "/*.pth"))
+            self.files = filter(lambda x: "2021" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
@@ -131,13 +132,13 @@ class LitIrradianceModel(LightningModule):
 
     def train_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_baches", train=True)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=True)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
     def val_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_baches", train=False)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=False)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
