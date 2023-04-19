@@ -43,8 +43,8 @@ class PseudoIrradianceDataset(IterableDataset):
             meta = data[1]
             # yield x, y and meta
             # Use einops to split the first dimension into batch size of 4 and then channels
-            x = einops.rearrange(x, "(b t) c h w -> b t c h w", b=4)
-            y = einops.rearrange(y, "(b t c) h w -> b t c h w", b=4, c=1)
+            x = einops.rearrange(x, "(b t) c h w -> b c t h w", b=4)
+            y = einops.rearrange(y, "(b t c) h w -> b c t h w", b=4, c=1)
             meta = einops.rearrange(meta, "(b c) h w -> b c h w", b=4)
             yield x, meta, y
 
