@@ -42,6 +42,10 @@ class PseudoIrradianceDataset(IterableDataset):
             y = data[2]
             meta = data[1]
             # yield x, y and meta
+            # Use einops to split the first dimension into batch size of 4 and then channels
+            x = einops.rearrange(x, "(b c) h w -> b c h w", b=4)
+            y = einops.rearrange(y, "(b c) h w -> b c h w", b=4)
+            meta = einops.rearrange(meta, "(b c) h w -> b c h w", b=4)
             yield x, meta, y
 
 
@@ -103,6 +107,7 @@ class LitIrradianceModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         tag = "val"
         x, meta, y = batch
+        print(x.shape, meta.shape, y.shape)
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
