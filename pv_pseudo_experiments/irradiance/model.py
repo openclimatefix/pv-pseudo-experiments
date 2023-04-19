@@ -46,6 +46,12 @@ class PseudoIrradianceDataset(IterableDataset):
             x = einops.rearrange(x, "(b t) c h w -> b c t h w", b=4)
             y = einops.rearrange(y, "(b t c) h w -> b c t h w", b=4, c=1)
             meta = einops.rearrange(meta, "(b c) h w -> b c h w", b=4)
+            x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+            y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+            meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
+            mask = meta > 0.0
+            if torch.all(mask == False):
+                continue
             yield x, meta, y
 
 
@@ -80,8 +86,6 @@ class LitIrradianceModel(LightningModule):
     def training_step(self, batch, batch_idx):
         tag = "train"
         x, meta, y = batch
-        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
@@ -110,9 +114,6 @@ class LitIrradianceModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         tag = "val"
         x, meta, y = batch
-        print(x.shape, meta.shape, y.shape)
-        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
