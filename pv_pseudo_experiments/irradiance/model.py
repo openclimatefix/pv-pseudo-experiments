@@ -84,7 +84,7 @@ class LitIrradianceModel(LightningModule):
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
         # Add in single channel output
-        y_hat = einops.repeat(y_hat, "b c t h w -> b c t h w", c=1)
+        y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
         mask = meta > 0.0
 
@@ -114,7 +114,7 @@ class LitIrradianceModel(LightningModule):
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
         # Add in single channel output
-        y_hat = einops.repeat(y_hat, "b c t h w -> b c t h w", c=1)
+        y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
         mask = meta > 0.0
 
