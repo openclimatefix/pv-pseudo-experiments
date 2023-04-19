@@ -50,7 +50,7 @@ def experiment(cfg: DictConfig) -> None:
     trainer = Trainer(
         max_epochs=cfg.epochs,
         precision=16 if cfg.fp16 else 32,
-        devices=3 if not cfg.cpu else "cpu",
+        devices=[3] if not cfg.cpu else "cpu",
         accelerator="auto" if not cfg.cpu else "cpu",
         log_every_n_steps=1,
         # limit_val_batches=400 * args.accumulate,
