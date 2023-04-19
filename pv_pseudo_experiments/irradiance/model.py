@@ -111,6 +111,8 @@ class LitIrradianceModel(LightningModule):
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
         y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         y_hat = self(x, meta)
+        # Add in single channel output
+        y_hat = einops.repeat(y_hat, "b c t h w -> b c t h w", c=1)
 
         mask = meta > 0.0
 
