@@ -87,6 +87,7 @@ class LitIrradianceModel(LightningModule):
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
         mask = meta > 0.0
+        mask = torch.sum(mask, dim=1) > 0.0
 
         # Expand to match the ground truth shape
         mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
@@ -117,6 +118,7 @@ class LitIrradianceModel(LightningModule):
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
         mask = meta > 0.0
+        mask = torch.sum(mask, dim=1) > 0.0
 
         # Expand to match the ground truth shape
         mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
