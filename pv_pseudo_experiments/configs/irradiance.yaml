@@ -2,15 +2,15 @@ model_name: "irradiance"
 model:
   forecast_steps: 12
   lr: 1e-4
-  input_channels: 12
+  input_channels: 32
   input_size: 32
-  input_steps: 12
+  input_steps: 13
   latent_channels: 8
   conv3d_channels: 256
   hidden_dim: 64
   kernel_size: 3
   num_layers: 4
-  output_steps: 12
+  output_steps: 49
   pv_meta_input_channels: 2
 dataloader:
   config: "configs/datapipe/forecastor_gcp.yaml"
