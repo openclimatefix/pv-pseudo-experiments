@@ -9,6 +9,40 @@ from omegaconf import DictConfig
 from pseudo_labeller.model import PsuedoIrradienceForecastor
 from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import IterableDataset
+import glob
+
+class PseudoIrradianceDataset(IterableDataset):
+    # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
+    def __init__(self, path_to_files: str, train: bool = True):
+        super().__init__()
+        self.path_to_files = path_to_files
+        self.train = train
+        # Use glob to get all files in the path_to_files and filter out ones that have 2021 in them if train is true
+        # and ones that have 2020 in them if train is false
+        # use the filter function and the lambda function to do this
+        if self.train:
+            self.files = filter(lambda x: "2021" not in x, glob.glob(self.path_to_files + "/*.pth"))
+        else:
+            self.files = filter(lambda x: "2021" in x, glob.glob(self.path_to_files + "/*.pth"))
+        self.files = list(self.files)
+        self.files.sort()
+        self.num_files = len(self.files)
+
+    def __len__(self):
+        return self.num_files
+
+    def __iter__(self):
+        for file in self.files:
+            # load file using torch.load
+            data = torch.load(file)
+            # split into x, y and meta
+            x = data[0]
+            y = data[2]
+            meta = data[1]
+            # yield x, y and meta
+            yield x, meta, y
+
 
 class LitIrradianceModel(LightningModule):
     def __init__(
@@ -56,7 +90,34 @@ class LitIrradianceModel(LightningModule):
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
-        self.log("loss", loss)
+        self.log("train/loss", loss)
+        self.log_dict(
+            {
+                f"MSE/{tag}": mse_loss,
+                f"NMAE/{tag}": nmae_loss,
+            },
+        )
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        tag = "val"
+        x, meta, y = batch
+        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+        y_hat = self(x, meta)
+
+        mask = meta > 0.0
+
+        # Expand to match the ground truth shape
+        mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
+
+        # calculate mse, mae
+        mse_loss = F.mse_loss(y_hat[mask], y[mask])
+        nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
+        loss = nmae_loss
+        if torch.isinf(loss) or torch.isnan(loss):
+            raise ValueError("Loss is NaN or Inf. Exiting.")
+        self.log("val/loss", loss)
         self.log_dict(
             {
                 f"MSE/{tag}": mse_loss,
@@ -70,42 +131,14 @@ class LitIrradianceModel(LightningModule):
 
     def train_dataloader(self):
         # Return your dataloader for training
-        datapipe = pseudo_irradiance_datapipe(
-            self.dataloader_config.config,
-            start_time=datetime.datetime(2008, 1, 1),
-            end_time=datetime.datetime(2020, 12, 31),
-            use_sun=self.dataloader_config.sun,
-            use_nwp=self.dataloader_config.nwp,
-            use_sat=self.dataloader_config.sat,
-            use_hrv=self.dataloader_config.hrv,
-            use_pv=True,
-            use_topo=self.dataloader_config.topo,
-            size=self.dataloader_config.size,
-            use_future=self.dataloader_config.use_future,
-            batch_size=self.dataloader_config.batch,
-        )
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_baches", train=True)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
-        return DataLoader(datapipe.collate().set_length(10000),
-                          num_workers=self.dataloader_config.num_workers, batch_size=None)
-
-    def test_dataloader(self):
-        datapipe = pseudo_irradiance_datapipe(
-            self.dataloader_config.config,
-            start_time=datetime.datetime(2021, 1, 1),
-            end_time=datetime.datetime(2021, 12, 31),
-            use_sun=self.dataloader_config.sun,
-            use_nwp=self.dataloader_config.nwp,
-            use_sat=self.dataloader_config.sat,
-            use_hrv=self.dataloader_config.hrv,
-            use_pv=True,
-            use_topo=self.dataloader_config.topo,
-            size=self.dataloader_config.size,
-            use_future=self.dataloader_config.use_future,
-            batch_size=self.dataloader_config.batch,
-        )
+        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
+    def val_dataloader(self):
+        # Return your dataloader for training
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_baches", train=False)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
-        return DataLoader(datapipe.collate().set_length(8000),
-                          num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
 
