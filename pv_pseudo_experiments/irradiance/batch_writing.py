@@ -16,6 +16,8 @@ class BatchWriter():
             use_pv=True,
             use_topo=dataloader_config.topo,
             size=dataloader_config.size,
+            size_meters=dataloader_config.size_meters,
+            use_meters=dataloader_config.use_meters,
             use_future=dataloader_config.use_future,
             batch_size=dataloader_config.batch,
         )

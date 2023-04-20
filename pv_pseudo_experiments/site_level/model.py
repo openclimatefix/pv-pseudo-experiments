@@ -138,7 +138,7 @@ class LitMetNetModel(LightningModule):
             self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]))
         return loss
 
-    def test_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx):
         tag = "val"
         x, y = batch
         x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
@@ -149,10 +149,10 @@ class LitMetNetModel(LightningModule):
         y_hat = self(x)
         # loss = self.weighted_losses.get_mse_exp(y_hat, y)
         # self.log("loss", loss)
-
+        mask = y >= 0.05 # Should cancel out night time
         # calculate mse, mae
-        mse_loss = F.mse_loss(y_hat, y)
-        nmae_loss = (y_hat - y).abs().mean()
+        mse_loss = F.mse_loss(y_hat[mask], y[mask])
+        nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
@@ -165,15 +165,15 @@ class LitMetNetModel(LightningModule):
                 f"MSE/{tag}": mse_loss,
                 f"NMAE/{tag}": nmae_loss,
             },
-            # on_step=True,
-            # on_epoch=True,
+            on_step=True,
+            on_epoch=True,
             # sync_dist=True  # Required for distributed training
             # (even multi-GPU on signle machine).
         )
 
         # add metrics for each forecast horizon
-        mse_each_forecast_horizon_metric = mse_each_forecast_horizon(output=y_hat, target=y)
-        mae_each_forecast_horizon_metric = mae_each_forecast_horizon(output=y_hat, target=y)
+        mse_each_forecast_horizon_metric = mse_each_forecast_horizon(output=y_hat[mask], target=y[mask])
+        mae_each_forecast_horizon_metric = mae_each_forecast_horizon(output=y_hat[mask], target=y[mask])
 
         metrics_mse = {
             f"MSE_forecast_horizon_{i}/{tag}": mse_each_forecast_horizon_metric[i]
@@ -186,8 +186,8 @@ class LitMetNetModel(LightningModule):
 
         self.log_dict(
             {**metrics_mse, **metrics_mae},
-            # on_step=True,
-            # on_epoch=True,
+            on_step=True,
+            on_epoch=True,
             # sync_dist=True  # Required for distributed training
             # (even multi-GPU on signle machine).
         )
@@ -246,11 +246,11 @@ class LitMetNetModel(LightningModule):
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader(datapipe.map(convert_to_tensor).set_length(10000), num_workers=self.dataloader_config.num_workers, batch_size=None)
 
-    def test_dataloader(self):
+    def val_dataloader(self):
         # Return your dataloader for training
         datapipe = metnet_site_datapipe(
             self.dataloader_config.config,
-            start_time=datetime.datetime(2020, 1, 1),
+            start_time=datetime.datetime(2021, 1, 1),
             end_time=datetime.datetime(2021, 12, 31),
             use_sun=self.dataloader_config.sun,
             use_nwp=self.dataloader_config.nwp,
