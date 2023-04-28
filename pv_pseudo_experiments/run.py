@@ -47,6 +47,7 @@ def experiment(cfg: DictConfig) -> None:
     if cfg.wandb:
         loggers.append(WandbLogger(project="PvMetNet" if cfg.model_name == "metnet" else "PvIrradiance",
                             log_model="all",))
+        loggers[-1].watch(model, log="all")
     trainer = Trainer(
         max_epochs=cfg.epochs,
         precision=16 if cfg.fp16 else 32,
