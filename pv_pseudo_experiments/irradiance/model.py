@@ -116,7 +116,7 @@ class LitIrradianceModel(LightningModule):
             },
         )
         if batch_idx % 100 == 0:  # Log every 100 batches
-            self.log_tb_images((x, y, y_hat, meta, [batch_idx for _ in range(min(x.shape[0],20))]), tag=tag)
+            self.log_tb_images((x[:20], y[:20], y_hat[:20], meta[:20], [batch_idx for _ in range(min(x.shape[0],20))]), tag=tag)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -146,7 +146,7 @@ class LitIrradianceModel(LightningModule):
             },
         )
         if batch_idx % 100 == 0:  # Log every 100 batches
-            self.log_tb_images((x, y, y_hat, meta, [batch_idx for _ in range(min(x.shape[0],20))]), tag=tag)
+            self.log_tb_images((x[:20], y[:20], y_hat[:20], meta[:20], [batch_idx for _ in range(min(x.shape[0],20))]), tag=tag)
         return loss
 
     def log_tb_images(self, viz_batch, tag) -> None:
