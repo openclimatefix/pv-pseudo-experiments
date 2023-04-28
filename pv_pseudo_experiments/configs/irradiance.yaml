@@ -29,5 +29,5 @@ epochs: 100
 fp16: true
 num_gpu: 0
 cpu: false
-accumulate: 1
-wandb: false
+accumulate: 32
+wandb: true
