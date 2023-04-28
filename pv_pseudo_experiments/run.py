@@ -36,9 +36,8 @@ def experiment(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown model name {cfg.model_name}")
 
     model_checkpoint = ModelCheckpoint(
-        every_n_train_steps=500,
-        monitor="step",
-        mode="max",
+        monitor="val/loss",
+        mode="min",
         save_last=True,
         save_top_k=10,
     )
