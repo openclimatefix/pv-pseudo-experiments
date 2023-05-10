@@ -103,7 +103,7 @@ class LitIrradianceModel(LightningModule):
     def training_step(self, batch, batch_idx):
         tag = "train"
         x, meta, y = batch
-        y_hat = self(x, meta)
+        y_hat = self(x.half(), meta.half())
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
@@ -133,7 +133,7 @@ class LitIrradianceModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         tag = "val"
         x, meta, y = batch
-        y_hat = self(x, meta)
+        y_hat = self(x.half(), meta.half())
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
@@ -192,7 +192,9 @@ class LitIrradianceModel(LightningModule):
                     axs[i, j].axis("off")
             tb_logger.add_figure(f"Input/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"Input/{tag}/{img_idx}": fig})
-            fig.close()
+            plt.cla()
+            plt.clf()
+            plt.close()
             # Forecast steps
             fig = plt.figure(figsize=(10, 30))
             axs = fig.subplots(1, y_true.shape[1])
@@ -201,7 +203,9 @@ class LitIrradianceModel(LightningModule):
                 axs[0, j].axis("off")
             tb_logger.add_figure(f"GT/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"GT/{tag}/{img_idx}": fig})
-            fig.close()
+            plt.cla()
+            plt.clf()
+            plt.close()
             # Forecast steps predicted
             fig = plt.figure(figsize=(10, 30))
             axs = fig.subplots(1, y_pred.shape[1])
@@ -210,7 +214,9 @@ class LitIrradianceModel(LightningModule):
                 axs[0, j].axis("off")
             tb_logger.add_figure(f"Pred/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"Pred/{tag}/{img_idx}": fig})
-            fig.close()
+            plt.cla()
+            plt.clf()
+            plt.close()
 
             # Now use meta to plot out the GT vs Pred for the pixels that have values
             mask = meta > 0.0
@@ -235,19 +241,21 @@ class LitIrradianceModel(LightningModule):
                 plt.legend(loc="best")
                 tb_logger.add_figure(f"GT_Vs_Pred/{tag}/{img_idx}_{x}_{y}", fig, batch_idx)
                 wandb_logger.log({f"GT_Vs_Pred/{tag}/{img_idx}_{x}_{y}": fig})
-
+                plt.cla()
+                plt.clf()
+                plt.close()
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
     def train_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=True)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches/sun/", train=True)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
     def val_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=False)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches/sun/", train=False)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
