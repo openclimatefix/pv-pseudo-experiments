@@ -19,7 +19,7 @@ import numpy as np
 
 class PseudoIrradianceDataset(IterableDataset):
     # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
-    def __init__(self, path_to_files: str, train: bool = True):
+    def __init__(self, path_to_files: str, train: bool = True, batch_size: int = 4):
         super().__init__()
         self.path_to_files = path_to_files
         self.train = train
@@ -33,6 +33,7 @@ class PseudoIrradianceDataset(IterableDataset):
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
+        self.batch_size = batch_size
 
     def __len__(self):
         return self.num_files
@@ -42,22 +43,32 @@ class PseudoIrradianceDataset(IterableDataset):
             self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
-        for file in self.files:
+        for files in self.files[::self.batch_size]:
             # load file using torch.load
-            data = torch.load(file)
-            # split into x, y and meta
-            x = data[0]
-            y = data[2]
-            meta = data[1]
-            # yield x, y and meta
-            # Use einops to split the first dimension into batch size of 4 and then channels
-            y = einops.rearrange(y, "(b c) h w -> b c t h w", c=1)
-            x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-            y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-            meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
-            mask = meta > 0.0
-            if torch.all(mask == False):
-                continue
+            xs = []
+            ys = []
+            metas = []
+            for file in files:
+                data = torch.load(file)
+                # split into x, y and meta
+                x = data[0]
+                y = data[2]
+                meta = data[1]
+                # yield x, y and meta
+                # Use einops to split the first dimension into batch size of 4 and then channels
+                y = einops.rearrange(y, "(b c) h w -> b c t h w", c=1)
+                x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+                y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+                meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
+                xs.append(x)
+                ys.append(y)
+                metas.append(meta)
+            x = torch.cat(xs, dim=0)
+            y = torch.cat(ys, dim=0)
+            meta = torch.cat(metas, dim=0)
+                #mask = meta > 0.0
+            #if torch.all(mask == False):
+            #    continue
             yield x, meta, y
 
 
@@ -96,15 +107,15 @@ class LitIrradianceModel(LightningModule):
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
-        mask = meta > 0.0
-        mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
+        #mask = meta > 0.0
+        #mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
 
         # Expand to match the ground truth shape
-        mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
+        #mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
 
         # calculate mse, mae
-        mse_loss = F.mse_loss(y_hat[mask], y[mask])
-        nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
+        mse_loss = F.mse_loss(y_hat, y)
+        nmae_loss = (y_hat - y).abs().mean()
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
@@ -126,15 +137,15 @@ class LitIrradianceModel(LightningModule):
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
 
-        mask = meta > 0.0
-        mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
+        #mask = meta > 0.0
+        #mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
 
         # Expand to match the ground truth shape
-        mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
+        #mask = einops.repeat(mask, "b c h w -> b c t h w", t=y.shape[2])
 
         # calculate mse, mae
-        mse_loss = F.mse_loss(y_hat[mask], y[mask])
-        nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
+        mse_loss = F.mse_loss(y_hat, y)
+        nmae_loss = (y_hat - y).abs().mean()
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
@@ -177,30 +188,26 @@ class LitIrradianceModel(LightningModule):
             for i in range(x.shape[0]):
                 for j in range(x.shape[1]):
                     axs[i, j].imshow(x[i, j, :, :].cpu().detach().numpy())
-                    axs[i, j].set_title(f"T: {i} C: {j}")
+                    axs[i, j].set_title(f"T: {j} C: {i}")
                     axs[i, j].axis("off")
             tb_logger.add_figure(f"Input/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"Input/{tag}/{img_idx}": fig})
             fig.close()
             # Forecast steps
             fig = plt.figure(figsize=(10, 30))
-            axs = fig.subplots(y_true.shape[0], y_true.shape[1])
-            for i in range(y_true.shape[0]):
-                for j in range(y_true.shape[1]):
-                    axs[i, j].imshow(y_true[i, j, :, :].cpu().detach().numpy())
-                    axs[i, j].set_title(f"T: {i} C: {j}")
-                    axs[i, j].axis("off")
+            axs = fig.subplots(1, y_true.shape[1])
+            for j in range(y_true.shape[1]):
+                axs[0, j].imshow(y_true[0, j, :, :].cpu().detach().numpy())
+                axs[0, j].axis("off")
             tb_logger.add_figure(f"GT/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"GT/{tag}/{img_idx}": fig})
             fig.close()
             # Forecast steps predicted
             fig = plt.figure(figsize=(10, 30))
-            axs = fig.subplots(y_pred.shape[0], y_pred.shape[1])
-            for i in range(y_pred.shape[0]):
-                for j in range(y_pred.shape[1]):
-                    axs[i, j].imshow(y_pred[i, j, :, :].cpu().detach().numpy())
-                    axs[i, j].set_title(f"T: {i} C: {j}")
-                    axs[i, j].axis("off")
+            axs = fig.subplots(1, y_pred.shape[1])
+            for j in range(y_pred.shape[1]):
+                axs[0, j].imshow(y_pred[0, j, :, :].cpu().detach().numpy())
+                axs[0, j].axis("off")
             tb_logger.add_figure(f"Pred/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"Pred/{tag}/{img_idx}": fig})
             fig.close()
