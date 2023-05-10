@@ -30,7 +30,7 @@ input_data:
       #  pv_metadata_filename: /mnt/storage_ssd_4tb/metnet_train/PVOutput.org/UK_PV_metadata.csv
     get_center: false
     history_minutes: 150 # 30 timesteps + t0 (To match NWP sequence length)
-    forecast_minutes: 1800 # 30 hours
+    forecast_minutes: 2880 # 48 hours
     log_level: "INFO"
 
   #---------------------- Satellite -------------
@@ -49,7 +49,7 @@ input_data:
       - WV_073
     satellite_image_size_pixels_height: 48
     satellite_image_size_pixels_width: 96
-    satellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2021_nonhrv.zarr"
+    satellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_nonhrv.zarr"
     keep_dawn_dusk_hours: 2
 
   #---------------------- HRVSatellite -------------
@@ -58,7 +58,7 @@ input_data:
       - HRV
     hrvsatellite_image_size_pixels_height: 128
     hrvsatellite_image_size_pixels_width: 256
-    hrvsatellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2021_hrv.zarr"
+    hrvsatellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_hrv.zarr"
 
   # ------------------------- Topographic ----------------
   topographic:

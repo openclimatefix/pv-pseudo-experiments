@@ -17,6 +17,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from pv_pseudo_experiments.irradiance.model import LitIrradianceModel
 from pv_pseudo_experiments.irradiance.batch_writing import BatchWriter
+from pv_pseudo_experiments.site_level.batch_writing import PVBatchWriter
 from pv_pseudo_experiments.site_level.model import LitMetNetModel
 
 
@@ -29,6 +30,11 @@ def experiment(cfg: DictConfig) -> None:
         model = LitIrradianceModel(cfg.model, dataloader_config=cfg.dataloader)
     elif cfg.model_name == "batch":
         model = BatchWriter(cfg.dataloader)
+        # Create batches now
+        model()
+        exit()
+    elif cfg.model_name == "metnet_batch":
+        model = PVBatchWriter(cfg.dataloader)
         # Create batches now
         model()
         exit()
