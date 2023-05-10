@@ -62,7 +62,7 @@ input_data:
 
   # ------------------------- Topographic ----------------
   topographic:
-    topographic_filename: /mnt/storage_ssd_4tb/metnet_train/Topo/europe_dem_1km_osgb.tif
+    topographic_filename: /mnt/storage_ssd_4tb/data/train_data/europe_dem_1km_osgb.tif
     topographic_image_size_pixels_width: 300
     topographic_image_size_pixels_height: 300
 
