@@ -20,7 +20,8 @@ class PVBatchWriter():
             output_size=dataloader_config.size,
             center_size_meters=dataloader_config.center_meter,
             context_size_meters=dataloader_config.context_meter,
-            batch_size=dataloader_config.batch,)
+            batch_size=dataloader_config.batch,
+            match_simon=dataloader_config.match_simon,)
         self.dataloader = DataLoader(datapipe,
                   num_workers=dataloader_config.num_workers, batch_size=None)
 

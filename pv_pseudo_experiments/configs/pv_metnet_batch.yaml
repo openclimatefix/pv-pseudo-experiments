@@ -20,6 +20,7 @@ dataloader:
   context_meter: 512_000
   num_workers: 0
   batch: 1
+  match_simon: false
 
 epochs: 100
 fp16: true
