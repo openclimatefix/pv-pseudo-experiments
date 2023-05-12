@@ -1,6 +1,6 @@
 import matplotlib
 from metnet.models import MetNetSingleShot
-from ocf_datapipes.training.metnet_pv_site import metnet_site_datapipe
+#from ocf_datapipes.training.metnet_pv_site import metnet_site_datapipe
 matplotlib.use("agg")
 import datetime
 import warnings
@@ -14,6 +14,11 @@ from lightning.pytorch.loggers import TensorBoardLogger, WandbLogger
 from omegaconf import DictConfig
 from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 from torch.utils.data.dataloader import DataLoader
+import glob
+from random import shuffle
+from torch.utils.data import IterableDataset
+import os
+import einops
 
 warnings.filterwarnings("ignore")
 
@@ -47,6 +52,55 @@ def mae_each_forecast_horizon(output: torch.Tensor, target: torch.Tensor) -> tor
 
 
 torch.set_float32_matmul_precision("medium")
+
+class MetNetDataset(IterableDataset):
+    # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
+    def __init__(self, path_to_files: str, train: bool = True, batch_size: int = 4):
+        super().__init__()
+        self.path_to_files = path_to_files
+        self.train = train
+        # Use glob to get all files in the path_to_files and filter out ones that have 2021 in them if train is true
+        # and ones that have 2020 in them if train is false
+        # use the filter function and the lambda function to do this
+        if self.train:
+            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+        else:
+            self.files = filter(lambda x: "test" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+        self.files = list(self.files)
+        self.files.sort()
+        self.num_files = len(self.files)
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return self.num_files
+
+    def __iter__(self):
+        if self.train:
+            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = list(self.files)
+            shuffle(self.files)
+        for files in self.files[::self.batch_size]:
+            # load file using torch.load
+            xs = []
+            ys = []
+            for file in files:
+                data = torch.load(file)
+                # split into x, y and meta
+                x = data[0]
+                y = data[1]
+                # yield x, y and meta
+                # Use einops to split the first dimension into batch size of 4 and then channels
+                y = einops.rearrange(y, "(b t) h w -> b t h w", c=1)
+                x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+                y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+                if y.shape[1] % 3 != 0:
+                    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
+                y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
+                xs.append(x)
+                ys.append(y)
+            x = torch.cat(xs, dim=0)
+            y = torch.cat(ys, dim=0)
+            yield x, y
 
 
 class LitMetNetModel(LightningModule):
@@ -227,45 +281,15 @@ class LitMetNetModel(LightningModule):
 
     def train_dataloader(self):
         # Return your dataloader for training
-        datapipe = metnet_site_datapipe(
-            self.dataloader_config.config,
-            start_time=datetime.datetime(2014, 1, 1),
-            end_time=datetime.datetime(2020, 12, 31),
-            use_sun=self.dataloader_config.sun,
-            use_nwp=self.dataloader_config.nwp,
-            use_sat=self.dataloader_config.sat,
-            use_hrv=self.dataloader_config.hrv,
-            use_pv=True,
-            use_topo=self.dataloader_config.topo,
-            pv_in_image=True,
-            output_size=self.dataloader_config.size,
-            center_size_meters=self.dataloader_config.center_meter,
-            context_size_meters=self.dataloader_config.context_meter,
-            batch_size=self.dataloader_config.batch,
-        )
+        datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=True, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader(datapipe.map(convert_to_tensor).set_length(10000), num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
     def val_dataloader(self):
         # Return your dataloader for training
-        datapipe = metnet_site_datapipe(
-            self.dataloader_config.config,
-            start_time=datetime.datetime(2021, 1, 1),
-            end_time=datetime.datetime(2021, 12, 31),
-            use_sun=self.dataloader_config.sun,
-            use_nwp=self.dataloader_config.nwp,
-            use_sat=self.dataloader_config.sat,
-            use_hrv=self.dataloader_config.hrv,
-            use_pv=True,
-            use_topo=self.dataloader_config.topo,
-            pv_in_image=True,
-            output_size=self.dataloader_config.size,
-            center_size_meters=self.dataloader_config.center_meter,
-            context_size_meters=self.dataloader_config.context_meter,
-            batch_size=self.dataloader_config.batch,
-        )
+        datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=False, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader(datapipe.map(convert_to_tensor).set_length(8000), num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets

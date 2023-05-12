@@ -27,9 +27,9 @@ class PseudoIrradianceDataset(IterableDataset):
         # and ones that have 2020 in them if train is false
         # use the filter function and the lambda function to do this
         if self.train:
-            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         else:
-            self.files = filter(lambda x: "test" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
@@ -40,7 +40,7 @@ class PseudoIrradianceDataset(IterableDataset):
 
     def __iter__(self):
         if self.train:
-            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
         for files in self.files[::self.batch_size]:
