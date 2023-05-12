@@ -56,9 +56,12 @@ class PseudoIrradianceDataset(IterableDataset):
                 meta = data[1]
                 # yield x, y and meta
                 # Use einops to split the first dimension into batch size of 4 and then channels
-                y = einops.rearrange(y, "(b c) h w -> b c t h w", c=1)
+                y = einops.rearrange(y, "(b t) h w -> b t h w", c=1)
                 x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
                 y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+                if y.shape[1] % 3 != 0:
+                    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
+                y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
                 meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
                 xs.append(x)
                 ys.append(y)
@@ -66,7 +69,8 @@ class PseudoIrradianceDataset(IterableDataset):
             x = torch.cat(xs, dim=0)
             y = torch.cat(ys, dim=0)
             meta = torch.cat(metas, dim=0)
-            x = x[:,1:] # Remove PV history
+            if self.train:
+                x = x[:,1:] # Remove PV history
             yield x, meta, y
 
 
