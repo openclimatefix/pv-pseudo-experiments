@@ -156,7 +156,7 @@ class LitMetNetModel(LightningModule):
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
-        self.log("loss", loss)
+        self.log("train/loss", loss)
         # TODO: Compute correlation coef using np.corrcoef(tensor with
         # shape (2, num_timesteps))[0, 1] on each example, and taking
         # the mean across the batch?
@@ -207,14 +207,14 @@ class LitMetNetModel(LightningModule):
         y_hat = self(x)
         # loss = self.weighted_losses.get_mse_exp(y_hat, y)
         # self.log("loss", loss)
-        mask = y >= 0.05 # Should cancel out night time
+        #mask = y >= 0.05 # Should cancel out night time
         # calculate mse, mae
-        mse_loss = F.mse_loss(y_hat[mask], y[mask])
-        nmae_loss = (y_hat[mask] - y[mask]).abs().mean()
+        mse_loss = F.mse_loss(y_hat, y)
+        nmae_loss = (y_hat - y).abs().mean()
         loss = nmae_loss
         if torch.isinf(loss) or torch.isnan(loss):
             raise ValueError("Loss is NaN or Inf. Exiting.")
-        self.log("loss", loss)
+        self.log("val/loss", loss)
         # TODO: Compute correlation coef using np.corrcoef(tensor with
         # shape (2, num_timesteps))[0, 1] on each example, and taking
         # the mean across the batch?
@@ -230,8 +230,8 @@ class LitMetNetModel(LightningModule):
         )
 
         # add metrics for each forecast horizon
-        mse_each_forecast_horizon_metric = mse_each_forecast_horizon(output=y_hat[mask], target=y[mask])
-        mae_each_forecast_horizon_metric = mae_each_forecast_horizon(output=y_hat[mask], target=y[mask])
+        mse_each_forecast_horizon_metric = mse_each_forecast_horizon(output=y_hat, target=y)
+        mae_each_forecast_horizon_metric = mae_each_forecast_horizon(output=y_hat, target=y)
 
         metrics_mse = {
             f"MSE_forecast_horizon_{i}/{tag}": mse_each_forecast_horizon_metric[i]
