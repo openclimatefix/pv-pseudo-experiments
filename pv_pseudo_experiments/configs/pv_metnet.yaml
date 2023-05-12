@@ -1,25 +1,25 @@
 model_name: "metnet"
 model:
-  forecast_steps: 360
+  forecast_steps: 192
   lr: 1e-4
   input_channels: 28
   input_size: 64
   center_crop_size: 8
-  hidden_dim: 1024
+  hidden_dim: 256
   att_layers: 8
   weights: "openclimatefix/pvmetnet-nwp"
 dataloader:
   config: "configs/datapipe/metnet_donatello.yaml"
-  sun: false
+  sun: true
   nwp: true
-  sat: false
-  hrv: false
-  topo: false
+  sat: true
+  hrv: true
+  topo: true
   size: 64
   center_meter: 32_000
   context_meter: 512_000
-  num_workers: 4
-  batch: 16
+  num_workers: 1
+  batch: 32
 
 epochs: 100
 fp16: true
