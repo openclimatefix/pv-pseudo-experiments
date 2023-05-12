@@ -27,9 +27,9 @@ class PseudoIrradianceDataset(IterableDataset):
         # and ones that have 2020 in them if train is false
         # use the filter function and the lambda function to do this
         if self.train:
-            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         else:
-            self.files = filter(lambda x: "2021" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "test" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
@@ -40,7 +40,7 @@ class PseudoIrradianceDataset(IterableDataset):
 
     def __iter__(self):
         if self.train:
-            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
         for files in self.files[::self.batch_size]:
@@ -66,9 +66,7 @@ class PseudoIrradianceDataset(IterableDataset):
             x = torch.cat(xs, dim=0)
             y = torch.cat(ys, dim=0)
             meta = torch.cat(metas, dim=0)
-                #mask = meta > 0.0
-            #if torch.all(mask == False):
-            #    continue
+            x = x[:,1:] # Remove PV history
             yield x, meta, y
 
 
@@ -203,51 +201,51 @@ class LitIrradianceModel(LightningModule):
             wandb_logger.log({f"GT/{tag}/{img_idx}": fig})
             fig.close()
             # Forecast steps predicted
-            fig = plt.figure(figsize=(10, 30))
-            axs = fig.subplots(1, y_pred.shape[1])
-            for j in range(y_pred.shape[1]):
-                axs[0, j].imshow(y_pred[0, j, :, :].cpu().detach().numpy())
-                axs[0, j].axis("off")
-            tb_logger.add_figure(f"Pred/{tag}/{img_idx}", fig, batch_idx)
-            wandb_logger.log({f"Pred/{tag}/{img_idx}": fig})
-            fig.close()
+            #fig = plt.figure(figsize=(10, 30))
+            #axs = fig.subplots(1, y_pred.shape[1])
+            #for j in range(y_pred.shape[1]):
+            #    axs[0, j].imshow(y_pred[0, j, :, :].cpu().detach().numpy())
+            #    axs[0, j].axis("off")
+            #tb_logger.add_figure(f"Pred/{tag}/{img_idx}", fig, batch_idx)
+            #wandb_logger.log({f"Pred/{tag}/{img_idx}": fig})
+            #fig.close()
 
             # Now use meta to plot out the GT vs Pred for the pixels that have values
-            mask = meta > 0.0
-            mask = torch.unsqueeze(torch.sum(mask, dim=0) > 0.0, dim=1)
+            #mask = meta > 0.0
+            #mask = torch.unsqueeze(torch.sum(mask, dim=0) > 0.0, dim=1)
 
             # Randomly take 10 pixels indicies where the mask is true
-            mask = mask.squeeze()
-            mask = mask.nonzero(as_tuple=True)
-            permutation_idx = torch.randperm(mask[0].shape[0])[:10]
-            x_mask = mask[0][permutation_idx]
-            y_mask = mask[1][permutation_idx]
+            #mask = mask.squeeze()
+            #mask = mask.nonzero(as_tuple=True)
+            #permutation_idx = torch.randperm(mask[0].shape[0])[:10]
+            #x_mask = mask[0][permutation_idx]
+            #y_mask = mask[1][permutation_idx]
             # Select those 10 pixels in y_true and y_pred and plot them
             # Mask is 2 tensors now I think
-            for x, y in zip(x_mask, y_mask):
-                gt = y_true[:, :, x, y].cpu().detach().numpy()
-                pred = y_pred[:, :, x, y].cpu().detach().numpy()
+            for example_idx in range(min(y_true.shape[0], 20)):
+                gt = y_true[example_idx].cpu().detach().numpy()
+                pred = y_pred[example_idx].cpu().detach().numpy()
                 # Now this is 2 1D arrays, plot them on matplotlib figure
                 fig = plt.figure()
                 plt.plot(list(range(gt.shape[0])), gt, label="GT")
                 plt.plot(list(range(gt.shape[0])), pred, label="Pred")
-                plt.title(f"GT vs Pred for Pixel {x},{y}")
+                plt.title(f"GT vs Pred for Pixel")
                 plt.legend(loc="best")
-                tb_logger.add_figure(f"GT_Vs_Pred/{tag}/{img_idx}_{x}_{y}", fig, batch_idx)
-                wandb_logger.log({f"GT_Vs_Pred/{tag}/{img_idx}_{x}_{y}": fig})
+                tb_logger.add_figure(f"GT_Vs_Pred/{tag}/{img_idx}_{example_idx}", fig, batch_idx)
+                wandb_logger.log({f"GT_Vs_Pred/{tag}/{img_idx}_{example_idx}": fig})
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
     def train_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=True)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=True, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
     def val_dataloader(self):
         # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_batches", train=False)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=False, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
