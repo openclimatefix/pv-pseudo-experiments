@@ -16,7 +16,7 @@ from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService
 from torch.utils.data.dataloader import DataLoader
 import glob
 from random import shuffle
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, default_collate
 import os
 import einops
 
@@ -52,7 +52,6 @@ def mae_each_forecast_horizon(output: torch.Tensor, target: torch.Tensor) -> tor
 
 
 torch.set_float32_matmul_precision("medium")
-
 class MetNetDataset(IterableDataset):
     # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
     def __init__(self, path_to_files: str, train: bool = True, batch_size: int = 4):
@@ -72,35 +71,40 @@ class MetNetDataset(IterableDataset):
         self.batch_size = batch_size
 
     def __len__(self):
-        return self.num_files
+        return self.num_files // self.batch_size
 
     def __iter__(self):
         if self.train:
             self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
-        for files in self.files[::self.batch_size]:
+        # Get a set of files to load self.batch_size at a time
+        files = []
+        for f in self.files:
             # load file using torch.load
-            xs = []
-            ys = []
-            for file in files:
-                data = torch.load(file)
-                # split into x, y and meta
-                x = data[0]
-                y = data[1]
-                # yield x, y and meta
-                # Use einops to split the first dimension into batch size of 4 and then channels
-                y = einops.rearrange(y, "(b t) h w -> b t h w", c=1)
-                x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-                y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-                if y.shape[1] % 3 != 0:
-                    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
-                y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
-                xs.append(x)
-                ys.append(y)
-            x = torch.cat(xs, dim=0)
-            y = torch.cat(ys, dim=0)
-            yield x, y
+            files.append(f)
+            if len(files) == self.batch_size:
+                xs = []
+                ys = []
+                for file in files:
+                    data = torch.load(file)
+                    # split into x, y and meta
+                    x = default_collate(data[0])
+                    y = torch.squeeze(default_collate(data[1][0]), dim=-1) # 1, 577
+                    # yield x, y and meta
+                    # Use einops to split the first dimension into batch size of 4 and then channels
+                    # y = einops.rearrange(y, "(b t) h w -> b t h w", t=1)
+                    x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+                    y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+                    if y.shape[1] % 3 != 0:
+                        y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
+                    y = torch.mean(y.reshape(1, -1, 3), dim=2) # Average over 3 timesteps
+                    xs.append(x)
+                    ys.append(y)
+                x = torch.cat(xs, dim=0)
+                y = torch.cat(ys, dim=0)
+                yield x, y
+                files = []
 
 
 class LitMetNetModel(LightningModule):
@@ -137,11 +141,11 @@ class LitMetNetModel(LightningModule):
     def training_step(self, batch, batch_idx):
         tag = "train"
         x, y = batch
-        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+        #x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+        #y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         x = x.half()
         y = y.half()
-        y = y[:, 1:, 0]  # Take out the T0 output
+        #y = y[:, 1:, 0]  # Take out the T0 output
         y_hat = self(x)
         # loss = self.weighted_losses.get_mse_exp(y_hat, y)
         # self.log("loss", loss)
@@ -195,11 +199,11 @@ class LitMetNetModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         tag = "val"
         x, y = batch
-        x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-        y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+        #x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+        #y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
         x = x.half()
         y = y.half()
-        y = y[:, 1:, 0]  # Take out the T0 output
+        #y = y[:, 1:, 0]  # Take out the T0 output
         y_hat = self(x)
         # loss = self.weighted_losses.get_mse_exp(y_hat, y)
         # self.log("loss", loss)
@@ -273,8 +277,8 @@ class LitMetNetModel(LightningModule):
             # Log the images (Give them different names)
         for img_idx, (_, y_true, y_pred, batch_idx) in enumerate(zip(*viz_batch)):
             fig = plt.figure()
-            plt.plot(list(range(360)), y_pred.cpu().detach().numpy(), label="Forecast")
-            plt.plot(list(range(360)), y_true.cpu().detach().numpy(), label="Truth")
+            plt.plot(list(range(y_pred.shape[0])), y_pred.cpu().detach().numpy(), label="Forecast")
+            plt.plot(list(range(y_true.shape[0])), y_true.cpu().detach().numpy(), label="Truth")
             plt.title("GT vs Pred PV Site Single Shot")
             plt.legend(loc="best")
             tb_logger.add_figure(f"GT_Vs_Pred/{img_idx}", fig, batch_idx)
@@ -285,11 +289,11 @@ class LitMetNetModel(LightningModule):
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
-    def val_dataloader(self):
+    #def val_dataloader(self):
         # Return your dataloader for training
-        datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=False, batch_size=self.dataloader_config.batch)
+    #    datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=False, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-        return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
+    #    return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets
