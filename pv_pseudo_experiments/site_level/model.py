@@ -193,7 +193,7 @@ class LitMetNetModel(LightningModule):
         )
 
         if batch_idx % 100 == 0:  # Log every 100 batches
-            self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]))
+            self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]), tag)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -251,13 +251,13 @@ class LitMetNetModel(LightningModule):
         )
 
         if batch_idx % 100 == 0:  # Log every 100 batches
-            self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]))
+            self.log_tb_images((x, y, y_hat, [batch_idx for _ in range(x.shape[0])]), tag)
         return loss
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
-    def log_tb_images(self, viz_batch) -> None:
+    def log_tb_images(self, viz_batch, tag) -> None:
 
         # Get tensorboard logger
         tb_logger = None
@@ -281,7 +281,9 @@ class LitMetNetModel(LightningModule):
             plt.plot(list(range(y_true.shape[0])), y_true.cpu().detach().numpy(), label="Truth")
             plt.title("GT vs Pred PV Site Single Shot")
             plt.legend(loc="best")
-            tb_logger.add_figure(f"GT_Vs_Pred/{img_idx}", fig, batch_idx)
+            tb_logger.add_figure(f"GT_Vs_Pred/{tag}/{img_idx}", fig, batch_idx)
+            if wandb_logger is not None:
+                wandb_logger.log({f"GT_Vs_Pred/{tag}/{img_idx}": fig})
 
     def train_dataloader(self):
         # Return your dataloader for training
@@ -289,11 +291,11 @@ class LitMetNetModel(LightningModule):
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
         return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
-    #def val_dataloader(self):
+    def val_dataloader(self):
         # Return your dataloader for training
-    #    datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=False, batch_size=self.dataloader_config.batch)
+        datapipe = MetNetDataset(path_to_files="/mnt/storage_ssd_4tb/metnet_batches/", train=False, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers, multiprocessing_context="spawn")
-    #    return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(datapipe, num_workers=self.dataloader_config.num_workers, batch_size=None)
 
 def convert_to_tensor(batch):
     # Each batch has 0 being the inputs, and 1 being the targets
