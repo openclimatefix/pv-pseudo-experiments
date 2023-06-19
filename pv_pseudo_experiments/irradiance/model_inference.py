@@ -39,10 +39,6 @@ class PseudoIrradianceDataset(IterableDataset):
         return self.num_files // self.batch_size
 
     def __iter__(self):
-        if self.train:
-            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
-            self.files = list(self.files)
-            shuffle(self.files)
         files = []
         for f in self.files:
             # load file using torch.load
@@ -51,12 +47,16 @@ class PseudoIrradianceDataset(IterableDataset):
                 xs = []
                 ys = []
                 metas = []
+                pv_metas = []
+                location_datas = []
                 for file in files:
                     data = torch.load(file)
                     # split into x, y and meta
                     x = data[0]
                     y = data[2]
                     meta = data[1]
+                    pv_meta = data[3]
+                    location_data = data[4]
                     print(y.shape)
                     print(meta.shape)
                     print(x.shape)
@@ -72,12 +72,12 @@ class PseudoIrradianceDataset(IterableDataset):
                     xs.append(x)
                     ys.append(y)
                     metas.append(meta)
+                    pv_metas.append(pv_meta)
+                    location_datas.append(location_data)
                 x = torch.cat(xs, dim=0)
                 y = torch.cat(ys, dim=0)
                 meta = torch.cat(metas, dim=0)
-                if self.train:
-                    x = x[:,1:] # Remove PV history
-                yield x, meta, y
+                yield x, meta, y, pv_metas, location_datas
 
 
 class LitIrradianceModel(LightningModule):
