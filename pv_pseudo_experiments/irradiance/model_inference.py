@@ -17,6 +17,9 @@ import os
 from random import shuffle
 import numpy as np
 
+def collatey(x):
+    return x
+
 class PseudoIrradianceDataset(IterableDataset):
     # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
     def __init__(self, path_to_files: str, train: bool = True, batch_size: int = 4):
@@ -131,11 +134,13 @@ class LitIrradianceModel(LightningModule):
         return loss
 
     def test_step(self, batch, **kwargs):
-        # TODO Need to do inference and save out in format the ID, timesteps, and predictions
-        x, meta, y = batch
+        x, meta, y, pv_metas, location_datas = batch
         y_hat = self(x, meta)
+        # Outputs are the latents
+        y_hat = y_hat.detach().cpu().numpy()
+        # Save out the predictions to disk
+        np.savez(f"/mnt/storage_ssd_4tb/irradiance_inference_outputs/{location_datas[0]['id']}_{pv_metas[0]['time_utc']}.npz", latents=y_hat, pv_metas=pv_metas, location_datas=location_datas)
 
-        pass
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
@@ -144,13 +149,13 @@ class LitIrradianceModel(LightningModule):
         dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=True, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
-        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
     def val_dataloader(self):
         # Return your dataloader for training
         dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=False, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
-        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None)
+        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
 
     def test_dataloader(self):
         datapipe = pseudo_irradiance_datapipe(
