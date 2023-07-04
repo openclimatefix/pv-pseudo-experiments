@@ -36,42 +36,48 @@ class PseudoIrradianceDataset(IterableDataset):
         self.batch_size = batch_size
 
     def __len__(self):
-        return self.num_files
+        return self.num_files // self.batch_size
 
     def __iter__(self):
         if self.train:
             self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
-        for files in self.files[::self.batch_size]:
+        files = []
+        for f in self.files:
             # load file using torch.load
-            xs = []
-            ys = []
-            metas = []
-            for file in files:
-                data = torch.load(file)
-                # split into x, y and meta
-                x = data[0]
-                y = data[2]
-                meta = data[1]
-                # yield x, y and meta
-                # Use einops to split the first dimension into batch size of 4 and then channels
-                y = einops.rearrange(y, "(b t) h w -> b t h w", c=1)
-                x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
-                y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-                if y.shape[1] % 3 != 0:
-                    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
-                y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
-                meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
-                xs.append(x)
-                ys.append(y)
-                metas.append(meta)
-            x = torch.cat(xs, dim=0)
-            y = torch.cat(ys, dim=0)
-            meta = torch.cat(metas, dim=0)
-            if self.train:
-                x = x[:,1:] # Remove PV history
-            yield x, meta, y
+            files.append(f)
+            if len(files) == self.batch_size:
+                xs = []
+                ys = []
+                metas = []
+                for file in files:
+                    data = torch.load(file)
+                    # split into x, y and meta
+                    x = data[0]
+                    y = data[2]
+                    meta = data[1]
+                    print(y.shape)
+                    print(meta.shape)
+                    print(x.shape)
+                    # yield x, y and meta
+                    # Use einops to split the first dimension into batch size of 4 and then channels
+                    #y = einops.rearrange(y, "(b c) h w -> b c h w", c=1)
+                    x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+                    y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
+                    #if y.shape[1] % 3 != 0:
+                    #    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
+                    #y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
+                    meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
+                    xs.append(x)
+                    ys.append(y)
+                    metas.append(meta)
+                x = torch.cat(xs, dim=0)
+                y = torch.cat(ys, dim=0)
+                meta = torch.cat(metas, dim=0)
+                if self.train:
+                    x = x[:,1:] # Remove PV history
+                yield x, meta, y
 
 
 class LitIrradianceModel(LightningModule):
@@ -107,7 +113,7 @@ class LitIrradianceModel(LightningModule):
         x, meta, y = batch
         y_hat = self(x, meta)
         # Add in single channel output
-        y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
+        y_hat = einops.repeat(y_hat, "b t -> b t c", c=1)
 
         #mask = meta > 0.0
         #mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
@@ -137,7 +143,7 @@ class LitIrradianceModel(LightningModule):
         x, meta, y = batch
         y_hat = self(x, meta)
         # Add in single channel output
-        y_hat = einops.repeat(y_hat, "b t h w -> b c t h w", c=1)
+        y_hat = einops.repeat(y_hat, "b t -> b t c", c=1)
 
         #mask = meta > 0.0
         #mask = torch.unsqueeze(torch.sum(mask, dim=1) > 0.0, dim=1)
@@ -199,7 +205,7 @@ class LitIrradianceModel(LightningModule):
             fig = plt.figure(figsize=(10, 30))
             axs = fig.subplots(1, y_true.shape[1])
             for j in range(y_true.shape[1]):
-                axs[0, j].imshow(y_true[0, j, :, :].cpu().detach().numpy())
+                axs[0, j].imshow(y_true[0, j,].cpu().detach().numpy())
                 axs[0, j].axis("off")
             tb_logger.add_figure(f"GT/{tag}/{img_idx}", fig, batch_idx)
             wandb_logger.log({f"GT/{tag}/{img_idx}": fig})

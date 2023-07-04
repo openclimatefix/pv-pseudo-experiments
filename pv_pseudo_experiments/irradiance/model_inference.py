@@ -60,9 +60,6 @@ class PseudoIrradianceDataset(IterableDataset):
                     meta = data[1]
                     pv_meta = data[3]
                     location_data = data[4]
-                    print(y.shape)
-                    print(meta.shape)
-                    print(x.shape)
                     # yield x, y and meta
                     # Use einops to split the first dimension into batch size of 4 and then channels
                     #y = einops.rearrange(y, "(b c) h w -> b c h w", c=1)
@@ -83,7 +80,7 @@ class PseudoIrradianceDataset(IterableDataset):
                 yield x, meta, y, pv_metas, location_datas
 
 
-class LitIrradianceModel(LightningModule):
+class LitIrradianceInferenceModel(LightningModule):
     def __init__(
             self,
             config: DictConfig,
@@ -113,7 +110,7 @@ class LitIrradianceModel(LightningModule):
 
     def training_step(self, batch, batch_idx):
         tag = "train"
-        x, meta, y = batch
+        x, meta, y, pv_metas, location_datas = batch
         y_hat = self(x, meta)
         # Add in single channel output
         y_hat = einops.repeat(y_hat, "b t -> b t c", c=1)
@@ -139,7 +136,8 @@ class LitIrradianceModel(LightningModule):
         # Outputs are the latents
         y_hat = y_hat.detach().cpu().numpy()
         # Save out the predictions to disk
-        np.savez(f"/mnt/storage_ssd_4tb/irradiance_inference_outputs/{location_datas[0]['id']}_{pv_metas[0]['time_utc']}.npz", latents=y_hat, pv_metas=pv_metas, location_datas=location_datas)
+        np.savez(f"/mnt/storage_ssd_4tb/irradiance_inference_outputs_2020/{location_datas[0]}_{pv_metas[0][0]}.npz", latents=y_hat, pv_metas=pv_metas, location_datas=location_datas)
+        return 0.0
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
@@ -150,29 +148,8 @@ class LitIrradianceModel(LightningModule):
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
         return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
-    def val_dataloader(self):
-        # Return your dataloader for training
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=False, batch_size=self.dataloader_config.batch)
-        #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
-        #                                   multiprocessing_context="spawn")
-        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
 
     def test_dataloader(self):
-        datapipe = pseudo_irradiance_datapipe(
-            self.dataloader_config.config,
-            start_time=datetime.datetime(2008, 1, 1),
-            end_time=datetime.datetime(2021, 12, 31),
-            use_sun=self.dataloader_config.sun,
-            use_nwp=self.dataloader_config.nwp,
-            use_sat=self.dataloader_config.sat,
-            use_hrv=self.dataloader_config.hrv,
-            use_pv=True,
-            use_topo=self.dataloader_config.topo,
-            size=self.dataloader_config.size,
-            size_meters=self.dataloader_config.size_meters,
-            use_meters=self.dataloader_config.use_meters,
-            use_future=self.dataloader_config.use_future,
-            batch_size=self.dataloader_config.batch,
-        )
-        return DataLoader(datapipe,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=lambda x: x)
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_inference_2020", train=False, batch_size=self.dataloader_config.batch)
+        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
 

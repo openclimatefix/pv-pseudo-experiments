@@ -52,10 +52,7 @@ def mae_each_forecast_horizon(output: torch.Tensor, target: torch.Tensor) -> tor
 
 
 torch.set_float32_matmul_precision("medium")
-no_nwp = False
-no_sat = False
-
-class MetNetDataset(IterableDataset):
+class PseudoIrradianceDataset(IterableDataset):
     # take as an init the folder containing .pth files and then load them in the __iter__ method and split into train and val
     def __init__(self, path_to_files: str, train: bool = True, batch_size: int = 4):
         super().__init__()
@@ -65,9 +62,9 @@ class MetNetDataset(IterableDataset):
         # and ones that have 2020 in them if train is false
         # use the filter function and the lambda function to do this
         if self.train:
-            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         else:
-            self.files = filter(lambda x: "test" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
@@ -78,10 +75,9 @@ class MetNetDataset(IterableDataset):
 
     def __iter__(self):
         if self.train:
-            self.files = filter(lambda x: "test" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
             self.files = list(self.files)
             shuffle(self.files)
-        # Get a set of files to load self.batch_size at a time
         files = []
         for f in self.files:
             # load file using torch.load
@@ -89,40 +85,34 @@ class MetNetDataset(IterableDataset):
             if len(files) == self.batch_size:
                 xs = []
                 ys = []
+                metas = []
                 for file in files:
                     data = torch.load(file)
                     # split into x, y and meta
-                    x = default_collate(data[0])
-                    if no_sat:
-                        x_1 = x[:, :10] # First 10 channels are NWP
-                        x_2 = x[:, 23:33]
-                        x_3 = x[:, 45:] # 12 channels removed
-                        x = torch.cat((x_1, x_2, x_3), dim=1) # No Satellite
-
-                    # Remove NWP, so first 17 channels, and 23-40 are NWP
-                    if no_nwp:
-                        x = x[:,10:]
-                        x_1 = x[:, :13]
-                        x_2 = x[:, 23:]
-                        x = torch.cat((x_1, x_2), dim=1) # No NWP
-
-                    # Remove PV history channels, the last one, and
-                    y = torch.squeeze(default_collate(data[1][0]), dim=-1) # 1, 577
+                    x = data[0]
+                    y = data[2]
+                    meta = data[1]
+                    print(y.shape)
+                    print(meta.shape)
+                    print(x.shape)
                     # yield x, y and meta
                     # Use einops to split the first dimension into batch size of 4 and then channels
-                    # y = einops.rearrange(y, "(b t) h w -> b t h w", t=1)
+                    #y = einops.rearrange(y, "(b c) h w -> b c h w", c=1)
                     x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
                     y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
-                    if y.shape[1] % 3 != 0:
-                        y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
-                    y = torch.mean(y.reshape(1, -1, 3), dim=2) # Average over 3 timesteps
-                    # If y is only 0s, then skip, as the data is wrong
-                    if torch.sum(y) >= 0.01:
-                        xs.append(x)
-                        ys.append(y)
+                    #if y.shape[1] % 3 != 0:
+                    #    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
+                    #y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
+                    meta = torch.nan_to_num(input=meta, posinf=1.0, neginf=0.0)
+                    xs.append(x)
+                    ys.append(y)
+                    metas.append(meta)
                 x = torch.cat(xs, dim=0)
                 y = torch.cat(ys, dim=0)
-                yield x, y
+                meta = torch.cat(metas, dim=0)
+                if self.train:
+                    x = x[:,1:] # Remove PV history
+                yield x, meta, y
                 files = []
 
 
@@ -139,7 +129,7 @@ class LitMetNetModel(LightningModule):
             self.model = MetNetSingleShot.from_pretrained(config.weights)
         else:
             self.model = MetNetSingleShot(
-                output_channels=config.forecast_steps,
+                output_channels=config.forecast_steps*config.irradiance_channels,
                 input_channels=config.input_channels,
                 center_crop_size=config.center_crop_size,
                 input_size=config.input_size,
@@ -148,16 +138,25 @@ class LitMetNetModel(LightningModule):
                 num_att_layers=config.att_layers,
                 hidden_dim=config.hidden_dim,
                 num_layers=config.num_layers,
-
             )
         self.pooler = torch.nn.AdaptiveAvgPool2d(1)
+        self.linear = torch.nn.Linear(config.irradiance_channels+2, config.hidden_dim) # Each one will have output of pseudo-irradiance channels + 2 metadata channels
+        self.linear2 = torch.nn.Linear(config.hidden_dim, config.hidden_dim)
+        self.linear3 = torch.nn.Conv1d(config.hidden_dim, config.forecast_steps, kernel_size=1)
+
         self.config = self.model.config
         self.dataloader_config = dataloader_config
         self.model_config = config
         self.save_hyperparameters()
 
-    def forward(self, x):
-        return F.relu(self.pooler(self.model(x))[:, :, 0, 0])
+    def forward(self, x, meta):
+        output = self.pooler(self.model(x))
+        # Combine with metadata to get output
+        # Make meta same size as output
+        # Want the inputs to be
+        output = torch.cat([output, meta], dim=1)
+
+        return F.relu(output)
 
     def training_step(self, batch, batch_idx):
         tag = "train"
