@@ -16,7 +16,17 @@ input_data:
     nwp_image_size_pixels_height: 128
     nwp_image_size_pixels_width: 128
     nwp_zarr_path: "/mnt/leonardo/storage_ssd_8tb/data/ocf/solar_pv_nowcasting/nowcasting_dataset_pipeline/NWP/UK_Met_Office/UKV/zarr/UKV_intermediate_version_7.zarr"
-    forecast_minutes: 120 # 4 hours
+    nwp_channels:
+      - si10
+      - vis
+      - t
+      - prate
+      - dlwrf
+      - dswrf
+      - hcc
+      - mcc
+      - lcc
+    forecast_minutes: 720 # 12 hours
     history_minutes: 60
 
   #---------------------- PV ---------minutes=60----------
@@ -31,7 +41,7 @@ input_data:
       #  pv_metadata_filename: /mnt/storage_ssd_4tb/metnet_train/PVOutput.org/UK_PV_metadata.csv
     get_center: false
     history_minutes: 30 # 1 hour
-    forecast_minutes: 180 # 1 hours
+    forecast_minutes: 720 # 12 hours
     log_level: "INFO"
 
   #---------------------- Satellite -------------
@@ -50,7 +60,7 @@ input_data:
       - WV_073
     satellite_image_size_pixels_height: 48
     satellite_image_size_pixels_width: 96
-    satellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_nonhrv.zarr"
+    satellite_zarr_path: ["gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2018_nonhrv.zarr", "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2019_nonhrv.zarr", "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_nonhrv.zarr"]
     keep_dawn_dusk_hours: 2
 
   #---------------------- HRVSatellite -------------
@@ -59,7 +69,7 @@ input_data:
       - HRV
     hrvsatellite_image_size_pixels_height: 128
     hrvsatellite_image_size_pixels_width: 256
-    hrvsatellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_hrv.zarr"
+    hrvsatellite_zarr_path: ["gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2018_hrv.zarr","gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2019_hrv.zarr","gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_hrv.zarr"]
 
   # ------------------------- Topographic ----------------
   topographic:

@@ -29,7 +29,10 @@ class PseudoIrradianceDataset(IterableDataset):
         # Use glob to get all files in the path_to_files and filter out ones that have 2021 in them if train is true
         # and ones that have 2020 in them if train is false
         # use the filter function and the lambda function to do this
-        self.files = filter(lambda x: x, glob.glob(os.path.join(self.path_to_files,"*.npy")))
+        if self.train:
+            self.files = filter(lambda x: "2021" not in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
+        else:
+            self.files = filter(lambda x: "2021" in x, glob.glob(os.path.join(self.path_to_files,"*.pth")))
         self.files = list(self.files)
         self.files.sort()
         self.num_files = len(self.files)
@@ -50,21 +53,18 @@ class PseudoIrradianceDataset(IterableDataset):
                 pv_metas = []
                 location_datas = []
                 for file in files:
-                    data = np.load(file, allow_pickle=True)
+                    data = torch.load(file)
                     # split into x, y and meta
-                    x = data[0][0]
-                    y = data[2][0]
-                    meta = data[1][0]
+                    x = data[0]
+                    y = data[2]
+                    meta = data[1]
                     pv_meta = data[3]
                     location_data = data[4]
                     # yield x, y and meta
                     # Use einops to split the first dimension into batch size of 4 and then channels
                     #y = einops.rearrange(y, "(b c) h w -> b c h w", c=1)
-                    x = torch.from_numpy(x)
-                    y = torch.from_numpy(y)
-                    meta = torch.from_numpy(meta)
-                    x = torch.unsqueeze(torch.nan_to_num(input=x, posinf=1.0, neginf=0.0), dim=0)
-                    y = torch.unsqueeze(torch.nan_to_num(input=y, posinf=1.0, neginf=0.0), dim=0)
+                    x = torch.nan_to_num(input=x, posinf=1.0, neginf=0.0)
+                    y = torch.nan_to_num(input=y, posinf=1.0, neginf=0.0)
                     #if y.shape[1] % 3 != 0:
                     #    y = y[:, :-(y.shape[1] % 3)] # Make it divisible by 3
                     #y = torch.mean(y.reshape(-1, 3), dim=1) # Average over 3 timesteps
@@ -78,35 +78,31 @@ class PseudoIrradianceDataset(IterableDataset):
                 y = torch.cat(ys, dim=0)
                 meta = torch.cat(metas, dim=0)
                 yield x, meta, y, pv_metas, location_datas
-                files = []
 
 
 class LitIrradianceInferenceModel(LightningModule):
     def __init__(
             self,
-            config: DictConfig,
-            dataloader_config: DictConfig,
     ):
         super().__init__()
-        self.forecast_steps = config.forecast_steps
-        self.dataloader_config = dataloader_config
-        self.learning_rate = config.lr
+        self.forecast_steps = 25
+        self.learning_rate = 0.001
         self.model = PsuedoIrradienceForecastor(
-            input_channels=config.input_channels,
-            input_size=config.input_size,
-            input_steps=config.input_steps,
-            output_channels=config.latent_channels,
-            conv3d_channels=config.conv3d_channels,
-            hidden_dim=config.hidden_dim,
-            kernel_size=config.kernel_size,
-            num_layers=config.num_layers,
-            output_steps=config.output_steps,
-            pv_meta_input_channels=config.pv_meta_input_channels,
+            input_channels=19,
+            input_size=16,
+            input_steps=6,
+            output_channels=16,
+            conv3d_channels=256,
+            hidden_dim=128,
+            kernel_size=3,
+            num_layers=2,
+            output_steps=25,
+            pv_meta_input_channels=2,
         )
         self.config = self.model.config
-        self.save_hyperparameters()
         state_dict = torch.load("/home/jacob/irradiance_inference_model.pt", map_location="cpu")
-        self.model.load_state_dict(state_dict)
+        self.model.load_state_dict(state_dict, strict=False)
+        self.save_hyperparameters()
 
     def forward(self, x, meta):
         return self.model(x, meta, output_latents=True)
@@ -133,14 +129,29 @@ class LitIrradianceInferenceModel(LightningModule):
         )
         return loss
 
-    def test_step(self, batch, batch_idx, **kwargs):
+    def test_step(self, batch, **kwargs):
         x, meta, y, pv_metas, location_datas = batch
         y_hat = self(x, meta)
         # Outputs are the latents
         y_hat = y_hat.detach().cpu().numpy()
         # Save out the predictions to disk
-        np.savez(f"/mnt/storage_ssd_4tb/irradiance_inference_outputs_2020/{location_datas[0][0]}_{pv_metas[0][0][0]}.npz", latents=y_hat, pv_metas=pv_metas, location_datas=location_datas)
-        return batch_idx
+        np.savez(f"/mnt/storage_ssd_4tb/irradiance_inference_outputs_2020/{location_datas[0]}_{pv_metas[0][0]}.npz", latents=y_hat, pv_metas=pv_metas, location_datas=location_datas)
+        return 0.0
+
+    def on_load_checkpoint(self, checkpoint: dict) -> None:
+        state_dict = checkpoint["state_dict"]
+        model_state_dict = self.state_dict()
+        is_changed = False
+        for k in state_dict:
+            if k in model_state_dict:
+                if state_dict[k].shape != model_state_dict[k].shape:
+                    state_dict[k] = model_state_dict[k]
+                    is_changed = True
+            else:
+                is_changed = True
+
+        if is_changed:
+            checkpoint.pop("optimizer_states", None)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
@@ -150,9 +161,18 @@ class LitIrradianceInferenceModel(LightningModule):
         dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_ones", train=True, batch_size=self.dataloader_config.batch)
         #rs = MultiProcessingReadingService(num_workers=self.dataloader_config.num_workers,
         #                                   multiprocessing_context="spawn")
-        return DataLoader(dataset,num_workers=self.dataloader_config.num_workers, batch_size=None, collate_fn=collatey)
-
-    def test_dataloader(self):
-        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_inference_2020", train=False, batch_size=1)
         return DataLoader(dataset,num_workers=0, batch_size=None, collate_fn=collatey)
 
+    def test_dataloader(self):
+        dataset = PseudoIrradianceDataset(path_to_files="/mnt/storage_ssd_4tb/irradiance_inference_2020", train=False, batch_size=self.dataloader_config.batch)
+        return DataLoader(dataset,num_workers=0, batch_size=None, collate_fn=collatey)
+
+model = LitIrradianceInferenceModel.load_from_checkpoint("/home/jacob/irradiance.ckpt", strict=False)
+model = model.model
+torch.save(model.state_dict(), "/home/jacob/irradiance_inference_model.pt")
+
+
+model = LitIrradianceInferenceModel()
+state_dict = torch.load("/home/jacob/irradiance_inference_model.pt", map_location="cpu")
+#print(state_dict)
+model.model.load_state_dict(state_dict, strict=False)

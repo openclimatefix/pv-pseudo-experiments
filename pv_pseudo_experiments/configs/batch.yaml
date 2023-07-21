@@ -23,8 +23,8 @@ dataloader:
   size_meters: 256000
   use_meters: true
   use_future: false
-  num_workers: 2
-  batch: 8
+  num_workers: 4
+  batch: 1
 epochs: 100
 fp16: true
 num_gpu: 0

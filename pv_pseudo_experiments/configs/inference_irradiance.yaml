@@ -2,16 +2,17 @@ model_name: "irradiance_inference"
 model:
   forecast_steps: 37
   lr: 1e-5
-  input_channels: 31
-  input_size: 64
-  input_steps: 7
-  latent_channels: 8
+  input_channels: 10
+  input_size: 16
+  input_steps: 6
+  latent_channels: 16
   conv3d_channels: 512
-  hidden_dim: 1024
+  hidden_dim: 128
   kernel_size: 3
   num_layers: 8
   output_steps: 37
   pv_meta_input_channels: 2
+  model_checkpoint: "/home/jacob/irradiance.ckpt"
 dataloader:
   config: "configs/datapipe/forecastor.yaml"
   sun: true
