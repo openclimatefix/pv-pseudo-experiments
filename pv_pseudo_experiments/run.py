@@ -60,7 +60,7 @@ def experiment(cfg: DictConfig) -> None:
         monitor="val/loss",
         mode="min",
         save_last=True,
-        save_top_k=10,
+        save_top_k=5,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
     loggers = [TensorBoardLogger(save_dir="./")]

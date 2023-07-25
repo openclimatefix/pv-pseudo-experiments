@@ -58,6 +58,10 @@ class PseudoIrradianceDataset(IterableDataset):
                         # Need to normalize metadata
                         meta[0] /= 90.
                         meta[1] /= 365.
+
+                        # Divide by 10 for channels 22 and 23
+                        x[22] /= 10.
+                        x[23] /= 10.
                         # yield x, y and meta
                         # Use einops to split the first dimension into batch size of 4 and then channels
                         #y = einops.rearrange(y, "(b c) h w -> b c h w", c=1)
