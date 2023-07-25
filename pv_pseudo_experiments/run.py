@@ -66,7 +66,19 @@ def experiment(cfg: DictConfig) -> None:
     loggers = [TensorBoardLogger(save_dir="./")]
     if cfg.wandb:
         loggers.append(WandbLogger(project="PvMetNet" if cfg.model_name == "metnet" else "PvIrradiance",
-                            log_model="all",))
+                            log_model="all", name=f"input{cfg.model.input_size}"
+                                                  f"_output{cfg.model.output_steps}"
+                                                  f"_conv3d{cfg.model.conv3d_channels}"
+                                                  f"_latent{cfg.model.latent_channels}"
+                                                  f"_layers{cfg.model.num_layers}"
+                                                  f"_sun{cfg.dataloader.sun}"
+                                                  f"_nwp{cfg.dataloader.nwp}"
+                                                  f"_sat{cfg.dataloader.sat}"
+                                                  f"_hrv{cfg.dataloader.hrv}"
+                                                  f"_topo{cfg.dataloader.topo}"
+                                                  f"_batch{cfg.dataloader.batch}"
+                                                  f"_fp16{cfg.fp16}"
+                                                  f"_lr{cfg.model.lr}",))
         loggers[-1].watch(model, log="all")
     trainer = Trainer(
         max_epochs=cfg.epochs,

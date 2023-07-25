@@ -1,16 +1,16 @@
 model_name: "irradiance"
 model:
-  forecast_steps: 37
+  forecast_steps: 48
   lr: 1e-5
-  input_channels: 31
-  input_size: 64
-  input_steps: 7
-  latent_channels: 8
+  input_channels: 30
+  input_size: 128
+  input_steps: 14
+  latent_channels: 16
   conv3d_channels: 512
-  hidden_dim: 1024
+  hidden_dim: 512
   kernel_size: 3
-  num_layers: 8
-  output_steps: 37
+  num_layers: 4
+  output_steps: 48
   pv_meta_input_channels: 2
 dataloader:
   config: "configs/datapipe/forecastor.yaml"
@@ -19,7 +19,7 @@ dataloader:
   sat: true
   hrv: true
   topo: true
-  size: 64
+  size: 128
   size_meters: 256000
   use_meters: true
   use_future: false
