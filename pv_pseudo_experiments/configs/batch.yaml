@@ -7,7 +7,7 @@ model:
   input_steps: 12
   latent_channels: 8
   conv3d_channels: 256
-  hidden_dim: 64
+  hidden_dim: 16
   kernel_size: 3
   num_layers: 4
   output_steps: 12
