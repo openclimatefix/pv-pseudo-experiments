@@ -35,18 +35,6 @@ input_data:
 
   #---------------------- Satellite -------------
   satellite:
-    satellite_channels:
-      - IR_016
-      - IR_039
-      - IR_087
-      - IR_097
-      - IR_108
-      - IR_120
-      - IR_134
-      - VIS006
-      - VIS008
-      - WV_062
-      - WV_073
     satellite_image_size_pixels_height: 48
     satellite_image_size_pixels_width: 96
     satellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_nonhrv.zarr"
@@ -54,8 +42,6 @@ input_data:
 
   #---------------------- HRVSatellite -------------
   hrvsatellite:
-    hrvsatellite_channels:
-      - HRV
     hrvsatellite_image_size_pixels_height: 128
     hrvsatellite_image_size_pixels_width: 256
     hrvsatellite_zarr_path: "gs://public-datasets-eumetsat-solar-forecasting/satellite/EUMETSAT/SEVIRI_RSS/v4/2020_hrv.zarr"
