@@ -1,15 +1,15 @@
-model_name: "irradiance"
+model_name: "irradiance_inference"
 model:
   forecast_steps: 48
   lr: 1e-5
-  input_channels: 30
-  input_size: 128
-  input_steps: 14
+  input_channels: 19
+  input_size: 16
+  input_steps: 6
   latent_channels: 16
   conv3d_channels: 256
   hidden_dim: 16
   kernel_size: 3
-  num_layers: 1
+  num_layers: 4
   output_steps: 48
   pv_meta_input_channels: 2
 dataloader:
@@ -19,17 +19,15 @@ dataloader:
   sat: true
   hrv: true
   topo: true
-  size: 128
+  size: 16
   size_meters: 256000
   use_meters: true
   use_future: false
-  num_workers: 0
-  batch: 16
+  num_workers: 1
+  batch: 1
 epochs: 100
 fp16: true
-num_gpus: 6
+num_gpu: 0
 cpu: false
 accumulate: 1
-wandb: true
-defaults:
-  - override hydra/launcher: joblib
+wandb: false

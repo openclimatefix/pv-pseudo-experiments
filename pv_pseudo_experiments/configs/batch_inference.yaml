@@ -1,9 +1,9 @@
-model_name: "batch"
+model_name: "irr_inference"
 model:
   forecast_steps: 12
   lr: 1e-4
   input_channels: 12
-  input_size: 64
+  input_size: 32
   input_steps: 12
   latent_channels: 8
   conv3d_channels: 256
@@ -16,14 +16,14 @@ dataloader:
   config: "configs/datapipe/forecastor.yaml"
   sun: true
   nwp: true
-  sat: true
-  hrv: true
+  sat: false
+  hrv: false
   topo: true
   size: 16
-  size_meters: 256000
+  size_meters: 64000
   use_meters: false
   use_future: false
-  num_workers: 16
+  num_workers: 0
   batch: 1
 epochs: 100
 fp16: true
